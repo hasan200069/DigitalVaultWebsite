@@ -9,6 +9,17 @@ import {
 } from '@heroicons/react/24/outline';
 
 const InheritancePage: React.FC = () => {
+  const handleCreatePlan = () => {
+    // In a real app, this would open a create inheritance plan modal
+    console.log('Create inheritance plan clicked');
+    alert('Create inheritance plan dialog would open here');
+  };
+
+  const handleAddBeneficiary = () => {
+    // In a real app, this would open an add beneficiary modal
+    console.log('Add beneficiary clicked');
+    alert('Add beneficiary dialog would open here');
+  };
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header Section */}
@@ -24,7 +35,10 @@ const InheritancePage: React.FC = () => {
               </p>
             </div>
             <div className="mt-4 sm:mt-0">
-              <button className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200">
+              <button 
+                onClick={handleCreatePlan}
+                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
+              >
                 <PlusIcon className="h-4 w-4 mr-2" />
                 Create Plan
               </button>
@@ -98,11 +112,17 @@ const InheritancePage: React.FC = () => {
                 Create your first inheritance plan to ensure your digital assets are properly transferred to your beneficiaries.
               </p>
               <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                <button className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-lg shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200">
+                <button 
+                  onClick={handleCreatePlan}
+                  className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-lg shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
+                >
                   <PlusIcon className="h-5 w-5 mr-2" />
                   Create Inheritance Plan
                 </button>
-                <button className="inline-flex items-center px-6 py-3 border border-gray-300 text-base font-medium rounded-lg shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200">
+                <button 
+                  onClick={handleAddBeneficiary}
+                  className="inline-flex items-center px-6 py-3 border border-gray-300 text-base font-medium rounded-lg shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
+                >
                   <UserPlusIcon className="h-5 w-5 mr-2" />
                   Add Beneficiary
                 </button>

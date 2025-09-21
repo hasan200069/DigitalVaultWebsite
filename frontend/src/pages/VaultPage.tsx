@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   CloudArrowUpIcon, 
   DocumentTextIcon, 
@@ -9,6 +9,36 @@ import {
 } from '@heroicons/react/24/outline';
 
 const VaultPage: React.FC = () => {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+
+  const handleUploadFiles = () => {
+    // In a real app, this would open a file upload dialog
+    console.log('Upload files clicked');
+    alert('File upload dialog would open here');
+  };
+
+  const handleCreateFolder = () => {
+    // In a real app, this would open a create folder dialog
+    console.log('Create folder clicked');
+    alert('Create folder dialog would open here');
+  };
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    console.log('Searching for:', searchQuery);
+    // In a real app, this would trigger a search
+  };
+
+  const handleFilter = () => {
+    console.log('Filter clicked');
+    // In a real app, this would open filter options
+  };
+
+  const handleViewToggle = () => {
+    setViewMode(prev => prev === 'grid' ? 'list' : 'grid');
+    console.log('View mode changed to:', viewMode === 'grid' ? 'list' : 'grid');
+  };
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header Section */}
@@ -24,7 +54,10 @@ const VaultPage: React.FC = () => {
               </p>
             </div>
             <div className="mt-4 sm:mt-0">
-              <button className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200">
+              <button 
+                onClick={handleUploadFiles}
+                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
+              >
                 <CloudArrowUpIcon className="h-4 w-4 mr-2" />
                 Upload Files
               </button>
@@ -40,25 +73,35 @@ const VaultPage: React.FC = () => {
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
             <div className="flex flex-col sm:flex-row gap-4">
               <div className="flex-1">
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <MagnifyingGlassIcon className="h-5 w-5 text-gray-400" />
+                <form onSubmit={handleSearch}>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <MagnifyingGlassIcon className="h-5 w-5 text-gray-400" />
+                    </div>
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200"
+                      placeholder="Search files and folders..."
+                    />
                   </div>
-                  <input
-                    type="text"
-                    className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200"
-                    placeholder="Search files and folders..."
-                  />
-                </div>
+                </form>
               </div>
               <div className="flex gap-2">
-                <button className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200">
+                <button 
+                  onClick={handleFilter}
+                  className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
+                >
                   <FunnelIcon className="h-4 w-4 mr-2" />
                   Filter
                 </button>
-                <button className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200">
+                <button 
+                  onClick={handleViewToggle}
+                  className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
+                >
                   <ViewColumnsIcon className="h-4 w-4 mr-2" />
-                  View
+                  {viewMode === 'grid' ? 'List' : 'Grid'}
                 </button>
               </div>
             </div>
@@ -77,11 +120,17 @@ const VaultPage: React.FC = () => {
               Get started by uploading your first document to the vault. Your files will be encrypted and stored securely.
             </p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <button className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-lg shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200">
+              <button 
+                onClick={handleUploadFiles}
+                className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-lg shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
+              >
                 <CloudArrowUpIcon className="h-5 w-5 mr-2" />
                 Upload Files
               </button>
-              <button className="inline-flex items-center px-6 py-3 border border-gray-300 text-base font-medium rounded-lg shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200">
+              <button 
+                onClick={handleCreateFolder}
+                className="inline-flex items-center px-6 py-3 border border-gray-300 text-base font-medium rounded-lg shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
+              >
                 <FolderIcon className="h-5 w-5 mr-2" />
                 Create Folder
               </button>

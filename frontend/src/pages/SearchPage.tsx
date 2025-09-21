@@ -28,6 +28,27 @@ const SearchPage: React.FC = () => {
     );
   };
 
+  const handleClearAllFilters = () => {
+    setSelectedFilters([]);
+    console.log('All filters cleared');
+  };
+
+  const handleClearSearch = () => {
+    setSearchQuery('');
+    console.log('Search cleared');
+  };
+
+  const handleUploadFiles = () => {
+    // In a real app, this would navigate to vault or open upload modal
+    console.log('Upload files clicked');
+    alert('File upload dialog would open here');
+  };
+
+  const handleRemoveRecentSearch = (searchTerm: string) => {
+    console.log('Removing recent search:', searchTerm);
+    // In a real app, this would remove from recent searches
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header Section */}
@@ -77,7 +98,10 @@ const SearchPage: React.FC = () => {
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-medium text-gray-900">Filters</h3>
-              <button className="text-sm text-blue-600 hover:text-blue-500">
+              <button 
+                onClick={handleClearAllFilters}
+                className="text-sm text-blue-600 hover:text-blue-500"
+              >
                 Clear all
               </button>
             </div>
@@ -117,12 +141,15 @@ const SearchPage: React.FC = () => {
                   </p>
                   <div className="flex flex-col sm:flex-row gap-3 justify-center">
                     <button 
-                      onClick={() => setSearchQuery('')}
+                      onClick={handleClearSearch}
                       className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
                     >
                       Clear Search
                     </button>
-                    <button className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200">
+                    <button 
+                      onClick={handleUploadFiles}
+                      className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
+                    >
                       Upload Files
                     </button>
                   </div>
@@ -176,7 +203,10 @@ const SearchPage: React.FC = () => {
                     <ClockIcon className="h-4 w-4 text-gray-400 mr-3" />
                     <span className="text-sm text-gray-700">contract documents</span>
                   </div>
-                  <button className="text-xs text-gray-500 hover:text-gray-700">
+                  <button 
+                    onClick={() => handleRemoveRecentSearch('contract documents')}
+                    className="text-xs text-gray-500 hover:text-gray-700"
+                  >
                     <XMarkIcon className="h-3 w-3" />
                   </button>
                 </div>
@@ -185,7 +215,10 @@ const SearchPage: React.FC = () => {
                     <ClockIcon className="h-4 w-4 text-gray-400 mr-3" />
                     <span className="text-sm text-gray-700">financial records</span>
                   </div>
-                  <button className="text-xs text-gray-500 hover:text-gray-700">
+                  <button 
+                    onClick={() => handleRemoveRecentSearch('financial records')}
+                    className="text-xs text-gray-500 hover:text-gray-700"
+                  >
                     <XMarkIcon className="h-3 w-3" />
                   </button>
                 </div>

@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   DocumentTextIcon, 
   UserGroupIcon, 
@@ -10,6 +11,25 @@ import {
 } from '@heroicons/react/24/outline';
 
 const DashboardPage: React.FC = () => {
+  const navigate = useNavigate();
+
+  const handleUploadFiles = () => {
+    navigate('/dashboard/vault');
+    // In a real app, this might open a file upload modal
+    console.log('Upload files clicked');
+  };
+
+  const handleAddBeneficiary = () => {
+    navigate('/dashboard/inheritance');
+    // In a real app, this might open a beneficiary form modal
+    console.log('Add beneficiary clicked');
+  };
+
+  const handleViewReports = () => {
+    navigate('/dashboard/audit');
+    // In a real app, this might open reports or show specific audit data
+    console.log('View reports clicked');
+  };
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header Section */}
@@ -108,7 +128,10 @@ const DashboardPage: React.FC = () => {
             <h2 className="text-xl font-semibold text-gray-900 mb-6">Quick Actions</h2>
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
               {/* Upload Files Action */}
-              <button className="group relative bg-white p-6 rounded-xl border border-gray-200 hover:border-blue-300 hover:shadow-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+              <button 
+                onClick={handleUploadFiles}
+                className="group relative bg-white p-6 rounded-xl border border-gray-200 hover:border-blue-300 hover:shadow-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+              >
                 <div className="flex items-start space-x-4">
                   <div className="flex-shrink-0">
                     <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center group-hover:bg-blue-200 transition-colors duration-200">
@@ -127,7 +150,10 @@ const DashboardPage: React.FC = () => {
               </button>
 
               {/* Add Beneficiary Action */}
-              <button className="group relative bg-white p-6 rounded-xl border border-gray-200 hover:border-green-300 hover:shadow-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">
+              <button 
+                onClick={handleAddBeneficiary}
+                className="group relative bg-white p-6 rounded-xl border border-gray-200 hover:border-green-300 hover:shadow-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
+              >
                 <div className="flex items-start space-x-4">
                   <div className="flex-shrink-0">
                     <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center group-hover:bg-green-200 transition-colors duration-200">
@@ -146,7 +172,10 @@ const DashboardPage: React.FC = () => {
               </button>
 
               {/* View Reports Action */}
-              <button className="group relative bg-white p-6 rounded-xl border border-gray-200 hover:border-purple-300 hover:shadow-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 sm:col-span-2 lg:col-span-1">
+              <button 
+                onClick={handleViewReports}
+                className="group relative bg-white p-6 rounded-xl border border-gray-200 hover:border-purple-300 hover:shadow-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 sm:col-span-2 lg:col-span-1"
+              >
                 <div className="flex items-start space-x-4">
                   <div className="flex-shrink-0">
                     <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center group-hover:bg-purple-200 transition-colors duration-200">

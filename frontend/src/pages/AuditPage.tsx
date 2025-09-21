@@ -28,6 +28,23 @@ const AuditPage: React.FC = () => {
     { id: 'security', label: 'Security Events' },
   ];
 
+  const handleExportLogs = () => {
+    // In a real app, this would trigger a download of audit logs
+    console.log('Export audit logs clicked');
+    alert('Audit logs export would start here');
+  };
+
+  const handleScheduleReports = () => {
+    // In a real app, this would open a schedule reports modal
+    console.log('Schedule reports clicked');
+    alert('Schedule reports dialog would open here');
+  };
+
+  const handleApplyFilters = () => {
+    console.log('Applying filters:', { selectedTimeRange, selectedEventType });
+    // In a real app, this would apply the filters and refresh the audit logs
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header Section */}
@@ -43,7 +60,10 @@ const AuditPage: React.FC = () => {
               </p>
             </div>
             <div className="mt-4 sm:mt-0">
-              <button className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200">
+              <button 
+                onClick={handleExportLogs}
+                className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
+              >
                 <ArrowDownTrayIcon className="h-4 w-4 mr-2" />
                 Export Logs
               </button>
@@ -154,7 +174,10 @@ const AuditPage: React.FC = () => {
                 </select>
               </div>
               <div className="flex items-end">
-                <button className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200">
+                <button 
+                  onClick={handleApplyFilters}
+                  className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
+                >
                   <FunnelIcon className="h-4 w-4 mr-2" />
                   Apply Filters
                 </button>
@@ -178,11 +201,17 @@ const AuditPage: React.FC = () => {
                 Audit logs will appear here as you use the digital vault. All activities are automatically tracked and logged.
               </p>
               <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                <button className="inline-flex items-center px-6 py-3 border border-gray-300 text-base font-medium rounded-lg shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200">
+                <button 
+                  onClick={handleExportLogs}
+                  className="inline-flex items-center px-6 py-3 border border-gray-300 text-base font-medium rounded-lg shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
+                >
                   <ArrowDownTrayIcon className="h-5 w-5 mr-2" />
                   Export Audit Logs
                 </button>
-                <button className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-lg shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200">
+                <button 
+                  onClick={handleScheduleReports}
+                  className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-lg shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
+                >
                   <CalendarIcon className="h-5 w-5 mr-2" />
                   Schedule Reports
                 </button>

@@ -50,6 +50,30 @@ const SettingsPage: React.FC = () => {
     }));
   };
 
+  const handleSaveChanges = () => {
+    console.log('Saving changes:', formData);
+    // In a real app, this would save the settings to the backend
+    alert('Settings saved successfully!');
+  };
+
+  const handleEnable2FA = () => {
+    console.log('Enable 2FA clicked');
+    // In a real app, this would open 2FA setup flow
+    alert('2FA setup dialog would open here');
+  };
+
+  const handleChangePassword = () => {
+    console.log('Change password clicked');
+    // In a real app, this would open change password modal
+    alert('Change password dialog would open here');
+  };
+
+  const handleManageDevices = () => {
+    console.log('Manage devices clicked');
+    // In a real app, this would open trusted devices management
+    alert('Trusted devices management would open here');
+  };
+
   const renderAccountSettings = () => (
     <div className="space-y-6">
       <div>
@@ -103,7 +127,10 @@ const SettingsPage: React.FC = () => {
                 <p className="text-sm text-gray-500">Add an extra layer of security to your account</p>
               </div>
             </div>
-            <button className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+            <button 
+              onClick={handleEnable2FA}
+              className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            >
               Enable 2FA
             </button>
           </div>
@@ -118,7 +145,10 @@ const SettingsPage: React.FC = () => {
                 <p className="text-sm text-gray-500">Update your account password</p>
               </div>
             </div>
-            <button className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+            <button 
+              onClick={handleChangePassword}
+              className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            >
               Change Password
             </button>
           </div>
@@ -133,7 +163,10 @@ const SettingsPage: React.FC = () => {
                 <p className="text-sm text-gray-500">Manage devices that can access your account</p>
               </div>
             </div>
-            <button className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+            <button 
+              onClick={handleManageDevices}
+              className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            >
               Manage Devices
             </button>
           </div>
@@ -266,7 +299,10 @@ const SettingsPage: React.FC = () => {
               {/* Save Button */}
               <div className="mt-8 pt-6 border-t border-gray-200">
                 <div className="flex justify-end">
-                  <button className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-lg shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200">
+                  <button 
+                    onClick={handleSaveChanges}
+                    className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-lg shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
+                  >
                     Save Changes
                   </button>
                 </div>
