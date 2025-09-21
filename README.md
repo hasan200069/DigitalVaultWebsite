@@ -93,15 +93,15 @@ The frontend is configured to connect to the backend API at `http://localhost:30
 ### PostgreSQL Database
 - **Host**: localhost
 - **Port**: 5432
-- **Database**: digital_vault
-- **Username**: postgres
-- **Password**: password
+- **Database**: aegisvault
+- **Username**: admin
+- **Password**: admin123
 
 ### MinIO Object Storage
 - **API Endpoint**: http://localhost:9000
 - **Console**: http://localhost:9001
-- **Access Key**: minioadmin
-- **Secret Key**: minioadmin
+- **Access Key**: admin
+- **Secret Key**: admin123
 
 ## Development
 
