@@ -39,39 +39,42 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
 
       {/* Sidebar */}
       <div className={`
-        fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0
+        fixed inset-y-0 left-0 z-50 w-72 bg-white shadow-xl transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0 lg:shadow-lg
         ${isOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
         <div className="flex h-full flex-col">
-          {/* Logo */}
-          <div className="flex h-16 items-center justify-between px-6 border-b border-gray-200">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className="h-8 w-8 bg-blue-600 rounded-lg flex items-center justify-center">
-                  <span className="text-white font-bold text-lg">DV</span>
-                </div>
-              </div>
-              <div className="ml-3">
-                <h1 className="text-lg font-semibold text-gray-900">Digital Vault</h1>
-              </div>
-            </div>
+          {/* Mobile close button */}
+          <div className="lg:hidden flex justify-end p-4">
             <button
               type="button"
-              className="lg:hidden -mr-2 flex h-8 w-8 items-center justify-center rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100"
+              className="flex h-8 w-8 items-center justify-center rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100"
               onClick={onClose}
             >
               <XMarkIcon className="h-6 w-6" />
             </button>
           </div>
 
+          {/* Sidebar Header */}
+          <div className="px-6 py-4 border-b border-gray-200">
+            <div className="flex items-center">
+              <div className="h-10 w-10 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center mr-3">
+                <span className="text-white font-bold text-sm">ACME</span>
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">ACME Corporation</h2>
+                <p className="text-sm text-gray-500">Digital Vault</p>
+              </div>
+            </div>
+          </div>
+
           {/* Navigation */}
-          <nav className="flex-1 px-4 py-6 space-y-2">
+          <nav className="flex-1 px-6 py-4 space-y-1">
             {navigation.map((item) => (
               <NavLink
                 key={item.name}
                 to={item.href}
                 className={({ isActive }) =>
-                  `group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200 ${
+                  `group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-colors duration-200 ${
                     isActive
                       ? 'bg-blue-50 text-blue-700 border-r-2 border-blue-700'
                       : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
@@ -86,7 +89,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
               >
                 <item.icon
                   className={`mr-3 h-5 w-5 flex-shrink-0 ${
-                    isActive
+                    window.location.pathname === item.href
                       ? 'text-blue-700'
                       : 'text-gray-400 group-hover:text-gray-500'
                   }`}
@@ -99,7 +102,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
           {/* Footer */}
           <div className="border-t border-gray-200 p-4">
             <div className="text-xs text-gray-500 text-center">
-              Digital Vault v1.0.0
+              v1.0.0
             </div>
           </div>
         </div>

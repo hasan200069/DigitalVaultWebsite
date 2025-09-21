@@ -12,7 +12,7 @@ import SettingsPage from './pages/SettingsPage';
 
 function App() {
   // TODO: Implement authentication state management
-  const isAuthenticated = false; // This will be replaced with actual auth state
+  const isAuthenticated = true; // Bypassed for testing - allows access to all pages
 
   return (
     <Router>
@@ -43,13 +43,6 @@ function App() {
           <Route path="audit" element={<AuditPage />} />
           <Route path="settings" element={<SettingsPage />} />
         </Route>
-        
-        {/* Legacy routes for direct access */}
-        <Route path="/vault" element={isAuthenticated ? <DashboardLayout><VaultPage /></DashboardLayout> : <Navigate to="/login" replace />} />
-        <Route path="/inheritance" element={isAuthenticated ? <DashboardLayout><InheritancePage /></DashboardLayout> : <Navigate to="/login" replace />} />
-        <Route path="/search" element={isAuthenticated ? <DashboardLayout><SearchPage /></DashboardLayout> : <Navigate to="/login" replace />} />
-        <Route path="/audit" element={isAuthenticated ? <DashboardLayout><AuditPage /></DashboardLayout> : <Navigate to="/login" replace />} />
-        <Route path="/settings" element={isAuthenticated ? <DashboardLayout><SettingsPage /></DashboardLayout> : <Navigate to="/login" replace />} />
         
         {/* Catch all route */}
         <Route path="*" element={<Navigate to="/" replace />} />

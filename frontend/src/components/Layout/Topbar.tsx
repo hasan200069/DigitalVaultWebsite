@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { 
   Bars3Icon, 
   BellIcon, 
@@ -15,10 +16,22 @@ interface TopbarProps {
 
 const Topbar: React.FC<TopbarProps> = ({ onMenuClick }) => {
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
+  const location = useLocation();
+
+  // Get current page name from pathname
+  const getCurrentPageName = () => {
+    const path = location.pathname;
+    if (path.includes('/vault')) return 'Vault';
+    if (path.includes('/inheritance')) return 'Inheritance';
+    if (path.includes('/search')) return 'Search';
+    if (path.includes('/audit')) return 'Audit';
+    if (path.includes('/settings')) return 'Settings';
+    return 'Dashboard';
+  };
 
   return (
     <div className="sticky top-0 z-30 bg-white shadow-sm border-b border-gray-200">
-      <div className="flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
+      <div className="flex h-16 items-center justify-between px-6 lg:px-8">
         {/* Left side - Mobile menu button */}
         <div className="flex items-center">
           <button
@@ -30,16 +43,24 @@ const Topbar: React.FC<TopbarProps> = ({ onMenuClick }) => {
           </button>
         </div>
 
-        {/* Center - Tenant Logo/Name */}
+        {/* Center - Breadcrumb or Page Context (hidden on mobile, shown on desktop) */}
         <div className="flex-1 flex justify-center lg:justify-start">
-          <div className="flex items-center">
-            <div className="h-8 w-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center mr-3">
-              <span className="text-white font-bold text-sm">ACME</span>
-            </div>
-            <div className="hidden sm:block">
-              <h2 className="text-lg font-semibold text-gray-900">ACME Corporation</h2>
-              <p className="text-xs text-gray-500">Digital Vault</p>
-            </div>
+          <div className="hidden lg:block">
+            <nav className="flex" aria-label="Breadcrumb">
+              <ol className="flex items-center space-x-2">
+                <li>
+                  <span className="text-sm text-gray-500">Digital Vault</span>
+                </li>
+                <li>
+                  <svg className="h-4 w-4 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+                  </svg>
+                </li>
+                <li>
+                  <span className="text-sm font-medium text-gray-900">{getCurrentPageName()}</span>
+                </li>
+              </ol>
+            </nav>
           </div>
         </div>
 
