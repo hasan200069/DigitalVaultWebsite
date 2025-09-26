@@ -4,7 +4,6 @@ import {
   UserGroupIcon, 
   DocumentTextIcon,
   ShieldCheckIcon,
-  ClockIcon,
   PlusIcon
 } from '@heroicons/react/24/outline';
 

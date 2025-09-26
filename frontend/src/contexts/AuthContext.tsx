@@ -1,6 +1,45 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
-import apiService, { LoginRequest, RegisterRequest, LoginResponse, RegisterResponse } from '../services/api';
+
+// Define interfaces locally to avoid import issues
+interface LoginRequest {
+  email: string;
+  password: string;
+}
+
+interface RegisterRequest {
+  email: string;
+  password: string;
+  firstName: string;
+  lastName: string;
+}
+
+interface LoginResponse {
+  success: boolean;
+  message: string;
+  user?: {
+    id: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+  };
+  tokens?: {
+    accessToken: string;
+    refreshToken: string;
+    expiresIn: number;
+  };
+}
+
+interface RegisterResponse {
+  success: boolean;
+  message: string;
+  user?: {
+    id: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+  };
+}
 
 interface User {
   id: string;
@@ -38,63 +77,90 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
 
-  const isAuthenticated = !!user && apiService.isAuthenticated();
+  // Simple token management
+  const getAccessToken = (): string | null => {
+    return localStorage.getItem('accessToken');
+  };
+
+  const clearTokens = (): void => {
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+  };
+
+  const isAuthenticated = !!user && !!getAccessToken();
 
   // Initialize auth state on app load
   useEffect(() => {
     const initializeAuth = async () => {
       try {
-        if (apiService.isAuthenticated()) {
-          // Try to refresh token if needed
-          const isValid = await apiService.ensureValidToken();
-          if (isValid) {
-            // In a real app, you might want to fetch user details from the backend
-            // For now, we'll just set a basic user object
-            const token = apiService.getAccessToken();
-            if (token) {
-              try {
-                const payload = JSON.parse(atob(token.split('.')[1]));
-                setUser({
-                  id: payload.userId,
-                  email: payload.email,
-                  firstName: 'User', // You'd fetch this from the backend
-                  lastName: 'Name'
-                });
-              } catch (error) {
-                console.error('Error parsing token:', error);
-                apiService.clearTokens();
-              }
+        // Check if we have a token in localStorage
+        const token = getAccessToken();
+        if (token) {
+          try {
+            // Parse the token to get user info
+            const payload = JSON.parse(atob(token.split('.')[1]));
+            const now = Math.floor(Date.now() / 1000);
+            
+            // Check if token is expired
+            if (payload.exp > now) {
+              setUser({
+                id: payload.userId,
+                email: payload.email,
+                firstName: 'User', // You'd fetch this from the backend
+                lastName: 'Name'
+              });
+            } else {
+              // Token is expired, clear it
+              clearTokens();
             }
-          } else {
-            apiService.clearTokens();
+          } catch (error) {
+            console.error('Error parsing token:', error);
+            clearTokens();
           }
         }
       } catch (error) {
         console.error('Auth initialization error:', error);
-        apiService.clearTokens();
+        clearTokens();
       } finally {
         setIsLoading(false);
       }
     };
 
+    // Initialize immediately without delay
     initializeAuth();
   }, []);
 
   const login = async (credentials: LoginRequest): Promise<{ success: boolean; message: string }> => {
     try {
       setIsLoading(true);
-      const response: LoginResponse = await apiService.login(credentials);
       
-      if (response.success && response.user && response.tokens) {
+      const response = await fetch('http://localhost:3001/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(credentials),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('Login failed:', errorData);
+        return { success: false, message: errorData.message || 'Login failed' };
+      }
+
+      const data: LoginResponse = await response.json();
+      
+      if (data.success && data.user && data.tokens) {
         // Store tokens
-        apiService.setTokens(response.tokens.accessToken, response.tokens.refreshToken);
+        localStorage.setItem('accessToken', data.tokens.accessToken);
+        localStorage.setItem('refreshToken', data.tokens.refreshToken);
         
         // Set user state
-        setUser(response.user);
+        setUser(data.user);
         
-        return { success: true, message: response.message };
+        return { success: true, message: data.message };
       } else {
-        return { success: false, message: response.message };
+        return { success: false, message: data.message };
       }
     } catch (error) {
       console.error('Login error:', error);
@@ -110,12 +176,27 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const register = async (userData: RegisterRequest): Promise<{ success: boolean; message: string }> => {
     try {
       setIsLoading(true);
-      const response: RegisterResponse = await apiService.register(userData);
       
-      if (response.success) {
-        return { success: true, message: response.message };
+      const response = await fetch('http://localhost:3001/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(userData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('Registration failed:', errorData);
+        return { success: false, message: errorData.message || 'Registration failed' };
+      }
+
+      const data: RegisterResponse = await response.json();
+      
+      if (data.success) {
+        return { success: true, message: data.message };
       } else {
-        return { success: false, message: response.message };
+        return { success: false, message: data.message };
       }
     } catch (error) {
       console.error('Registration error:', error);
@@ -130,24 +211,39 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const logout = async (): Promise<void> => {
     try {
-      const refreshToken = apiService.getRefreshToken();
+      const refreshToken = localStorage.getItem('refreshToken');
       if (refreshToken) {
-        await apiService.logout(refreshToken);
+        await fetch('http://localhost:3001/auth/logout', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ refreshToken }),
+        });
       }
     } catch (error) {
       console.error('Logout error:', error);
     } finally {
       // Clear state regardless of API call success
-      apiService.clearTokens();
+      clearTokens();
       setUser(null);
       navigate('/login');
     }
   };
 
   const refreshAuth = async (): Promise<void> => {
+    // Simple implementation - just check if token exists and is valid
+    const token = getAccessToken();
+    if (!token) {
+      await logout();
+      return;
+    }
+
     try {
-      const isValid = await apiService.ensureValidToken();
-      if (!isValid) {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      const now = Math.floor(Date.now() / 1000);
+      
+      if (payload.exp <= now) {
         await logout();
       }
     } catch (error) {

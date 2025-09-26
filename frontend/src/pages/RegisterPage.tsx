@@ -65,7 +65,12 @@ const RegisterPage: React.FC = () => {
           navigate('/login');
         }, 2000);
       } else {
-        setError(result.message);
+        // Check if it's a password validation error
+        if (result.message.includes('Password does not meet requirements')) {
+          setError('Password does not meet requirements. Please check the requirements below.');
+        } else {
+          setError(result.message);
+        }
       }
     } catch (error) {
       setError('An unexpected error occurred. Please try again.');
@@ -204,10 +209,27 @@ const RegisterPage: React.FC = () => {
                 </button>
               </div>
               {formData.password && (
-                <div className="mt-1 text-xs">
-                  <div className={`flex items-center ${isPasswordValid ? 'text-green-600' : 'text-red-600'}`}>
-                    <CheckIcon className={`h-3 w-3 mr-1 ${isPasswordValid ? 'text-green-600' : 'text-red-600'}`} />
+                <div className="mt-1 text-xs space-y-1">
+                  <div className="text-gray-600 font-medium">Password requirements:</div>
+                  <div className={`flex items-center ${formData.password.length >= 8 ? 'text-green-600' : 'text-red-600'}`}>
+                    <CheckIcon className={`h-3 w-3 mr-1 ${formData.password.length >= 8 ? 'text-green-600' : 'text-red-600'}`} />
                     At least 8 characters
+                  </div>
+                  <div className={`flex items-center ${/[a-z]/.test(formData.password) ? 'text-green-600' : 'text-red-600'}`}>
+                    <CheckIcon className={`h-3 w-3 mr-1 ${/[a-z]/.test(formData.password) ? 'text-green-600' : 'text-red-600'}`} />
+                    Lowercase letter
+                  </div>
+                  <div className={`flex items-center ${/[A-Z]/.test(formData.password) ? 'text-green-600' : 'text-red-600'}`}>
+                    <CheckIcon className={`h-3 w-3 mr-1 ${/[A-Z]/.test(formData.password) ? 'text-green-600' : 'text-red-600'}`} />
+                    Uppercase letter
+                  </div>
+                  <div className={`flex items-center ${/\d/.test(formData.password) ? 'text-green-600' : 'text-red-600'}`}>
+                    <CheckIcon className={`h-3 w-3 mr-1 ${/\d/.test(formData.password) ? 'text-green-600' : 'text-red-600'}`} />
+                    Number
+                  </div>
+                  <div className={`flex items-center ${/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(formData.password) ? 'text-green-600' : 'text-red-600'}`}>
+                    <CheckIcon className={`h-3 w-3 mr-1 ${/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(formData.password) ? 'text-green-600' : 'text-red-600'}`} />
+                    Special character
                   </div>
                 </div>
               )}

@@ -6,8 +6,6 @@ import {
   GlobeAltIcon,
   KeyIcon,
   DevicePhoneMobileIcon,
-  CheckIcon,
-  XMarkIcon
 } from '@heroicons/react/24/outline';
 
 const SettingsPage: React.FC = () => {

@@ -4,7 +4,6 @@ import {
   ArrowDownTrayIcon,
   FunnelIcon,
   CalendarIcon,
-  ClockIcon,
   UserIcon,
   ShieldCheckIcon,
   ExclamationTriangleIcon

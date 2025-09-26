@@ -19,7 +19,7 @@ export const generateAccessToken = (userId: string, email: string): string => {
     exp: Math.floor(Date.now() / 1000) + (15 * 60), // 15 minutes
   };
 
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: '15m' });
+  return jwt.sign(payload, JWT_SECRET);
 };
 
 // Generate refresh token
@@ -32,7 +32,7 @@ export const generateRefreshToken = (userId: string, email: string): string => {
     exp: Math.floor(Date.now() / 1000) + (7 * 24 * 60 * 60), // 7 days
   };
 
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' });
+  return jwt.sign(payload, JWT_SECRET);
 };
 
 // Verify JWT token

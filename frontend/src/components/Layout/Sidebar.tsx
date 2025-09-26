@@ -73,7 +73,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
               <NavLink
                 key={item.name}
                 to={item.href}
-                className={({ isActive }) =>
+                className={({ isActive }: { isActive: boolean }) =>
                   `group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-colors duration-200 ${
                     isActive
                       ? 'bg-blue-50 text-blue-700 border-r-2 border-blue-700'
