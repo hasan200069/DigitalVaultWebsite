@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { 
   EyeIcon, 
   EyeSlashIcon,
@@ -7,10 +7,14 @@ import {
   ArrowDownTrayIcon,
   CheckIcon
 } from '@heroicons/react/24/outline';
+import { useAuth } from '../contexts/AuthContext';
 
 const RegisterPage: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -19,6 +23,9 @@ const RegisterPage: React.FC = () => {
     confirmPassword: '',
     agreeToTerms: false,
   });
+  
+  const { register } = useAuth();
+  const navigate = useNavigate();
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target;
@@ -28,10 +35,43 @@ const RegisterPage: React.FC = () => {
     }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Registration attempt:', formData);
-    // TODO: Implement registration logic
+    setError('');
+    setSuccess('');
+    setIsLoading(true);
+
+    try {
+      const result = await register({
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        email: formData.email,
+        password: formData.password,
+      });
+      
+      if (result.success) {
+        setSuccess('Registration successful! You can now sign in.');
+        // Clear form
+        setFormData({
+          firstName: '',
+          lastName: '',
+          email: '',
+          password: '',
+          confirmPassword: '',
+          agreeToTerms: false,
+        });
+        // Redirect to login after a short delay
+        setTimeout(() => {
+          navigate('/login');
+        }, 2000);
+      } else {
+        setError(result.message);
+      }
+    } catch (error) {
+      setError('An unexpected error occurred. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleWebAuthnRegister = () => {
@@ -69,6 +109,18 @@ const RegisterPage: React.FC = () => {
         </div>
 
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-md text-sm">
+              {error}
+            </div>
+          )}
+          
+          {success && (
+            <div className="bg-green-50 border border-green-200 text-green-600 px-4 py-3 rounded-md text-sm">
+              {success}
+            </div>
+          )}
+          
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -225,10 +277,10 @@ const RegisterPage: React.FC = () => {
           <div className="space-y-3">
             <button
               type="submit"
-              disabled={!isPasswordValid || !isPasswordMatch || !formData.agreeToTerms}
+              disabled={!isPasswordValid || !isPasswordMatch || !formData.agreeToTerms || isLoading}
               className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-gray-400 disabled:cursor-not-allowed"
             >
-              Create account
+              {isLoading ? 'Creating account...' : 'Create account'}
             </button>
 
             <div className="relative">

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { 
   Bars3Icon, 
   BellIcon, 
@@ -9,6 +9,7 @@ import {
   Cog6ToothIcon,
   UserIcon
 } from '@heroicons/react/24/outline';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface TopbarProps {
   onMenuClick: () => void;
@@ -17,6 +18,8 @@ interface TopbarProps {
 const Topbar: React.FC<TopbarProps> = ({ onMenuClick }) => {
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, logout } = useAuth();
 
   // Get current page name from pathname
   const getCurrentPageName = () => {
@@ -27,6 +30,16 @@ const Topbar: React.FC<TopbarProps> = ({ onMenuClick }) => {
     if (path.includes('/audit')) return 'Audit';
     if (path.includes('/settings')) return 'Settings';
     return 'Dashboard';
+  };
+
+  const handleLogout = async () => {
+    setProfileDropdownOpen(false);
+    await logout();
+  };
+
+  const handleSettings = () => {
+    setProfileDropdownOpen(false);
+    navigate('/dashboard/settings');
   };
 
   return (
@@ -86,8 +99,10 @@ const Topbar: React.FC<TopbarProps> = ({ onMenuClick }) => {
             >
               <UserCircleIcon className="h-8 w-8 text-gray-400" />
               <div className="hidden sm:block text-left">
-                <p className="text-sm font-medium text-gray-900">John Doe</p>
-                <p className="text-xs text-gray-500">john.doe@acme.com</p>
+                <p className="text-sm font-medium text-gray-900">
+                  {user ? `${user.firstName} ${user.lastName}` : 'User'}
+                </p>
+                <p className="text-xs text-gray-500">{user?.email || 'user@example.com'}</p>
               </div>
               <ChevronDownIcon className="h-4 w-4 text-gray-400" />
             </button>
@@ -96,8 +111,10 @@ const Topbar: React.FC<TopbarProps> = ({ onMenuClick }) => {
             {profileDropdownOpen && (
               <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50 border border-gray-200">
                 <div className="px-4 py-2 border-b border-gray-100">
-                  <p className="text-sm font-medium text-gray-900">John Doe</p>
-                  <p className="text-xs text-gray-500">john.doe@acme.com</p>
+                  <p className="text-sm font-medium text-gray-900">
+                    {user ? `${user.firstName} ${user.lastName}` : 'User'}
+                  </p>
+                  <p className="text-xs text-gray-500">{user?.email || 'user@example.com'}</p>
                 </div>
                 
                 <a
@@ -109,24 +126,24 @@ const Topbar: React.FC<TopbarProps> = ({ onMenuClick }) => {
                   Profile
                 </a>
                 
-                <a
-                  href="#"
-                  className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                  onClick={() => setProfileDropdownOpen(false)}
+                <button
+                  type="button"
+                  className="w-full flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 text-left"
+                  onClick={handleSettings}
                 >
                   <Cog6ToothIcon className="mr-3 h-4 w-4" />
                   Settings
-                </a>
+                </button>
                 
                 <div className="border-t border-gray-100">
-                  <a
-                    href="#"
-                    className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                    onClick={() => setProfileDropdownOpen(false)}
+                  <button
+                    type="button"
+                    className="w-full flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 text-left"
+                    onClick={handleLogout}
                   >
                     <ArrowRightOnRectangleIcon className="mr-3 h-4 w-4" />
                     Sign out
-                  </a>
+                  </button>
                 </div>
               </div>
             )}
