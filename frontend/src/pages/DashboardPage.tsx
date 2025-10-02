@@ -1,5 +1,7 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+import { vaultApiService } from '../services/vaultApi';
 import { 
   DocumentTextIcon, 
   UserGroupIcon, 
@@ -12,6 +14,21 @@ import {
 
 const DashboardPage: React.FC = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const [stats, setStats] = useState<{ totalFiles: number; encryptedFiles: number; totalBytes: number }>({ totalFiles: 0, encryptedFiles: 0, totalBytes: 0 });
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await vaultApiService.getStats();
+        if (res.success) {
+          setStats({ totalFiles: res.totalFiles, encryptedFiles: res.encryptedFiles, totalBytes: res.totalBytes });
+        }
+      } catch (e) {
+        console.warn('Failed to load stats', e);
+      }
+    })();
+  }, []);
 
   const handleUploadFiles = () => {
     navigate('/dashboard/vault');
@@ -37,7 +54,7 @@ const DashboardPage: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="text-center lg:text-left">
             <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">
-              Welcome back, John
+              {`Welcome back, ${user?.firstName || user?.email || 'User'}`}
             </h1>
             <p className="mt-1 text-base text-gray-600 max-w-2xl mx-auto lg:mx-0">
               Here's an overview of your digital vault and recent activity.
@@ -64,7 +81,7 @@ const DashboardPage: React.FC = () => {
                     </div>
                     <div className="ml-4 flex-1">
                       <p className="text-sm font-medium text-gray-500">Total Files</p>
-                      <p className="text-2xl font-bold text-gray-900">0</p>
+                      <p className="text-2xl font-bold text-gray-900">{stats.totalFiles}</p>
                     </div>
                   </div>
                 </div>
@@ -98,7 +115,7 @@ const DashboardPage: React.FC = () => {
                     </div>
                     <div className="ml-4 flex-1">
                       <p className="text-sm font-medium text-gray-500">Storage Used</p>
-                      <p className="text-2xl font-bold text-gray-900">0 MB</p>
+                      <p className="text-2xl font-bold text-gray-900">{(stats.totalBytes / (1024 * 1024)).toFixed(2)} MB</p>
                     </div>
                   </div>
                 </div>

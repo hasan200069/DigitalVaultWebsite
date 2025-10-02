@@ -59,19 +59,24 @@ const VaultPage: React.FC = () => {
       if (response.success && response.items) {
         setItems(response.items);
         
-        // Calculate stats
-        const totalSize = response.items.reduce((sum, item) => sum + (item.fileSize || 0), 0);
+        // Calculate categories locally
         const categories = response.items.reduce((acc, item) => {
           const cat = item.category || 'other';
           acc[cat] = (acc[cat] || 0) + 1;
           return acc;
         }, {} as Record<string, number>);
 
-        setStats({
-          totalFiles: response.items.length,
-          totalSize,
-          categories
-        });
+        // Load authoritative totals from backend stats
+        try {
+          const s = await vaultApiService.getStats();
+          if (s.success) {
+            setStats({ totalFiles: s.totalFiles, totalSize: s.totalBytes, categories });
+          } else {
+            setStats({ totalFiles: response.items.length, totalSize: 0, categories });
+          }
+        } catch {
+          setStats({ totalFiles: response.items.length, totalSize: 0, categories });
+        }
       } else {
         setError(response.message || 'Failed to load items');
       }

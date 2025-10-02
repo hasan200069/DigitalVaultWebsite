@@ -103,12 +103,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             
             // Check if token is expired
             if (payload.exp > now) {
-              setUser({
-                id: payload.userId,
-                email: payload.email,
-                firstName: 'User', // You'd fetch this from the backend
-                lastName: 'Name'
-              });
+              // Prefer stored user profile if available
+              const storedUser = localStorage.getItem('user');
+              if (storedUser) {
+                setUser(JSON.parse(storedUser));
+              } else {
+                setUser({
+                  id: payload.userId,
+                  email: payload.email,
+                  firstName: payload.firstName || 'User',
+                  lastName: payload.lastName || 'Name'
+                });
+              }
             } else {
               // Token is expired, clear it
               clearTokens();
@@ -154,6 +160,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         // Store tokens
         localStorage.setItem('accessToken', data.tokens.accessToken);
         localStorage.setItem('refreshToken', data.tokens.refreshToken);
+        // Store user profile for reload persistence
+        localStorage.setItem('user', JSON.stringify(data.user));
         
         // Set user state
         setUser(data.user);
@@ -227,6 +235,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // Clear state regardless of API call success
       clearTokens();
       setUser(null);
+      localStorage.removeItem('user');
       
       // Clear only the in-memory flag on logout; keep vmkSalt so user can restore after relogin
       localStorage.removeItem('vmkInitialized');

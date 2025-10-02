@@ -522,3 +522,53 @@ export const listItems = async (req: Request, res: Response): Promise<void> => {
     });
   }
 };
+
+// Get stats: total files, encrypted files, total size
+export const getStats = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const userId = (req as any).user?.id;
+
+    if (!userId) {
+      res.status(401).json({ success: false, message: 'User not authenticated' });
+      return;
+    }
+
+    const defaultTenant = await query(
+      'SELECT id FROM tenants WHERE domain = $1',
+      ['default']
+    );
+
+    if (defaultTenant.rows.length === 0) {
+      res.status(500).json({ success: false, message: 'Default tenant not found' });
+      return;
+    }
+
+    const tenantId = defaultTenant.rows[0].id;
+
+    const totalRes = await query(
+      'SELECT COUNT(*) AS total FROM vault_items WHERE user_id = $1 AND tenant_id = $2 AND is_active = true',
+      [userId, tenantId]
+    );
+
+    const encRes = await query(
+      'SELECT COUNT(*) AS encrypted FROM vault_items WHERE user_id = $1 AND tenant_id = $2 AND is_active = true AND is_encrypted = true',
+      [userId, tenantId]
+    );
+
+    const sizeRes = await query(
+      'SELECT COALESCE(SUM(viv.file_size), 0) AS total_size FROM vault_item_versions viv JOIN vault_items vi ON viv.item_id = vi.id WHERE vi.user_id = $1 AND vi.tenant_id = $2 AND vi.is_active = true',
+      [userId, tenantId]
+    );
+
+    res.json({
+      success: true,
+      message: 'Stats retrieved successfully',
+      totalFiles: parseInt(totalRes.rows[0].total, 10),
+      encryptedFiles: parseInt(encRes.rows[0].encrypted, 10),
+      totalBytes: parseInt(sizeRes.rows[0].total_size, 10)
+    });
+  } catch (error) {
+    console.error('Get stats error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};

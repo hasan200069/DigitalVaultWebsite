@@ -5,7 +5,8 @@ import {
   createVersion, 
   getDownloadUrl, 
   listItems,
-  deleteItem
+  deleteItem,
+  getStats
 } from './vaultService';
 import { authenticateToken } from '../auth-service/middleware';
 
@@ -21,5 +22,6 @@ router.get('/items/:id', getItem);
 router.delete('/items/:id', deleteItem);
 router.post('/items/:id/versions', createVersion);
 router.get('/items/:id/versions/:version/download', getDownloadUrl);
+router.get('/stats', getStats);
 
 export { router as vaultRoutes };

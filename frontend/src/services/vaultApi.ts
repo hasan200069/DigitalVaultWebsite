@@ -99,6 +99,11 @@ class VaultApiService {
     this.baseURL = baseURL;
   }
 
+  // Get stats for dashboard
+  async getStats(): Promise<{ success: boolean; message: string; totalFiles: number; encryptedFiles: number; totalBytes: number; }> {
+    return this.request('/vault/stats');
+  }
+
   private async request<T>(
     endpoint: string,
     options: RequestInit = {}
