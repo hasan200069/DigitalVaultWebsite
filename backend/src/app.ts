@@ -5,6 +5,7 @@ import morgan from 'morgan';
 import dotenv from 'dotenv';
 import { authRoutes } from './auth-service';
 import { tenantRoutes } from './tenant-service';
+import { vaultRoutes } from './vault-service';
 
 // Load environment variables
 dotenv.config();
@@ -36,6 +37,9 @@ app.use('/auth', authRoutes);
 
 // Tenant routes
 app.use('/tenants', tenantRoutes);
+
+// Vault routes
+app.use('/vault', vaultRoutes);
 
 // Error handling middleware
 app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {

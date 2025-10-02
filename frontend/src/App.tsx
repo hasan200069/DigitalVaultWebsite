@@ -10,6 +10,7 @@ import InheritancePage from './pages/InheritancePage';
 import SearchPage from './pages/SearchPage';
 import AuditPage from './pages/AuditPage';
 import SettingsPage from './pages/SettingsPage';
+import CryptoDemo from './components/CryptoDemo';
 
 // Protected Route Component
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -83,6 +84,7 @@ function App() {
             <Route path="search" element={<SearchPage />} />
             <Route path="audit" element={<AuditPage />} />
             <Route path="settings" element={<SettingsPage />} />
+            <Route path="crypto-demo" element={<CryptoDemo />} />
           </Route>
           
           {/* Catch all route */}

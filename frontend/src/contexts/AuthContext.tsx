@@ -227,6 +227,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // Clear state regardless of API call success
       clearTokens();
       setUser(null);
+      
+      // Clear only the in-memory flag on logout; keep vmkSalt so user can restore after relogin
+      localStorage.removeItem('vmkInitialized');
+      
+      // Dispatch event to notify crypto components to clear VMK
+      window.dispatchEvent(new CustomEvent('vmkStateChanged'));
+      
       navigate('/login');
     }
   };

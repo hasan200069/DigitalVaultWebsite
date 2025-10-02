@@ -21,10 +21,12 @@
     "docker:up": "docker-compose up -d",
     "docker:down": "docker-compose down",
     "docker:logs": "docker-compose logs -f",
-    "clean": "rm -rf node_modules frontend/node_modules backend/node_modules frontend/dist backend/dist"
+    "clean": "rimraf node_modules frontend/node_modules backend/node_modules frontend/dist backend/dist",
+    "clean:win": "if exist node_modules rmdir /s /q node_modules && if exist frontend\\node_modules rmdir /s /q frontend\\node_modules && if exist backend\\node_modules rmdir /s /q backend\\node_modules && if exist frontend\\dist rmdir /s /q frontend\\dist && if exist backend\\dist rmdir /s /q backend\\dist"
   },
   "devDependencies": {
-    "concurrently": "^8.2.2"
+    "concurrently": "^8.2.2",
+    "rimraf": "^5.0.5"
   },
   "keywords": [
     "digital-vault",

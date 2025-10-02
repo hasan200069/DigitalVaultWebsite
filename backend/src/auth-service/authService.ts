@@ -229,7 +229,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       tokens: {
         accessToken,
         refreshToken,
-        expiresIn: 15 * 60 // 15 minutes in seconds
+        expiresIn: 60 * 60 // 1 hour in seconds
       }
     } as LoginResponse);
 
@@ -415,7 +415,7 @@ export const webauthnVerify = async (req: Request, res: Response): Promise<void>
       tokens: {
         accessToken,
         refreshToken,
-        expiresIn: 15 * 60 // 15 minutes in seconds
+        expiresIn: 60 * 60 // 1 hour in seconds
       }
     } as WebAuthnVerifyResponse);
 
@@ -621,7 +621,7 @@ export const refreshToken = async (req: Request, res: Response): Promise<void> =
       tokens: {
         accessToken: newAccessToken,
         refreshToken: newRefreshToken,
-        expiresIn: 15 * 60 // 15 minutes in seconds
+        expiresIn: 60 * 60 // 1 hour in seconds
       }
     });
 

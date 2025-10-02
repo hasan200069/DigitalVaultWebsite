@@ -10,6 +10,7 @@ declare global {
         id: string;
         email: string;
         type: string;
+        tenantId?: string;
       };
     }
   }
@@ -43,7 +44,7 @@ export const authenticateToken = async (req: Request, res: Response, next: NextF
 
     // Check if user still exists and is active
     const userResult = await query(
-      'SELECT id, email, is_active FROM users WHERE id = $1',
+      'SELECT id, email, tenant_id, is_active FROM users WHERE id = $1',
       [decoded.userId]
     );
 
@@ -69,7 +70,8 @@ export const authenticateToken = async (req: Request, res: Response, next: NextF
     req.user = {
       id: user.id,
       email: user.email,
-      type: decoded.type
+      type: decoded.type,
+      tenantId: user.tenant_id
     };
 
     next();
@@ -101,7 +103,7 @@ export const optionalAuth = async (req: Request, res: Response, next: NextFuncti
     }
 
     const userResult = await query(
-      'SELECT id, email, is_active FROM users WHERE id = $1',
+      'SELECT id, email, tenant_id, is_active FROM users WHERE id = $1',
       [decoded.userId]
     );
 
@@ -109,7 +111,8 @@ export const optionalAuth = async (req: Request, res: Response, next: NextFuncti
       req.user = {
         id: userResult.rows[0].id,
         email: userResult.rows[0].email,
-        type: decoded.type
+        type: decoded.type,
+        tenantId: userResult.rows[0].tenant_id
       };
     }
 

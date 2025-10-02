@@ -44,6 +44,44 @@ CREATE TABLE IF NOT EXISTS files (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Create vault_items table
+CREATE TABLE IF NOT EXISTS vault_items (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    category VARCHAR(100),
+    tags TEXT[],
+    is_encrypted BOOLEAN DEFAULT true,
+    encryption_key_id VARCHAR(255),
+    file_size BIGINT,
+    mime_type VARCHAR(100),
+    file_extension VARCHAR(20),
+    current_version INTEGER DEFAULT 1,
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create vault_item_versions table
+CREATE TABLE IF NOT EXISTS vault_item_versions (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    item_id UUID NOT NULL REFERENCES vault_items(id) ON DELETE CASCADE,
+    version_number INTEGER NOT NULL,
+    file_path VARCHAR(500) NOT NULL,
+    file_size BIGINT NOT NULL,
+    mime_type VARCHAR(100) NOT NULL,
+    checksum VARCHAR(64),
+    is_encrypted BOOLEAN DEFAULT true,
+    encryption_key_id VARCHAR(255),
+    uploaded_by UUID NOT NULL REFERENCES users(id),
+    upload_ip VARCHAR(45),
+    user_agent TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(item_id, version_number)
+);
+
 -- Create indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_tenants_domain ON tenants(domain);
 CREATE INDEX IF NOT EXISTS idx_users_tenant_id ON users(tenant_id);
@@ -51,6 +89,13 @@ CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 CREATE INDEX IF NOT EXISTS idx_users_tenant_email ON users(tenant_id, email);
 CREATE INDEX IF NOT EXISTS idx_files_user_id ON files(user_id);
 CREATE INDEX IF NOT EXISTS idx_files_created_at ON files(created_at);
+CREATE INDEX IF NOT EXISTS idx_vault_items_user_id ON vault_items(user_id);
+CREATE INDEX IF NOT EXISTS idx_vault_items_tenant_id ON vault_items(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_vault_items_category ON vault_items(category);
+CREATE INDEX IF NOT EXISTS idx_vault_items_created_at ON vault_items(created_at);
+CREATE INDEX IF NOT EXISTS idx_vault_item_versions_item_id ON vault_item_versions(item_id);
+CREATE INDEX IF NOT EXISTS idx_vault_item_versions_version_number ON vault_item_versions(version_number);
+CREATE INDEX IF NOT EXISTS idx_vault_item_versions_created_at ON vault_item_versions(created_at);
 
 -- Create refresh_tokens table
 CREATE TABLE IF NOT EXISTS refresh_tokens (
@@ -105,12 +150,11 @@ VALUES (
 ) ON CONFLICT (domain) DO NOTHING;
 
 -- Insert a default admin user (password: admin123)
--- Note: This will be updated with proper Argon2id hash when auth service is implemented
 INSERT INTO users (tenant_id, email, password_hash, first_name, last_name, is_admin) 
 SELECT 
     t.id,
     'admin@digitalvault.com', 
-    '$2b$10$rQZ8K9vL2mN3pO4qR5sT6uV7wX8yZ9aB0cD1eF2gH3iJ4kL5mN6oP7qR8sT9uV0wX1yZ2aB3cD4eF5gH6iJ7kL8mN9oP0qR1sT2uV3wX4yZ5aB6cD7eF8gH9iJ0kL1mN2oP3qR4sT5uV6wX7yZ8aB9cD0eF1gH2iJ3kL4mN5oP6qR7sT8uV9wX0yZ1aB2cD3eF4gH5h6i7j8k9l0m1n2o3p4q5r6s7t8u9v0w1x2y3z4',
+    '$argon2id$v=19$m=65536,t=3,p=4$isSD0uIYFEoPTG5pUPu2gA$Df/6s9KV12fGZXZuSHYppp4Ph+WATvEOXU6qgKy8fXY',
     'Admin',
     'User',
     true
