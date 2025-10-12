@@ -136,7 +136,7 @@ class AuditApiService {
     
     // Get filename from Content-Disposition header or use default
     const contentDisposition = response.headers.get('Content-Disposition');
-    let filename = 'audit-logs.csv';
+    let filename = request.format === 'pdf' ? 'audit-logs.pdf' : 'audit-logs.csv';
     if (contentDisposition) {
       const filenameMatch = contentDisposition.match(/filename="(.+)"/);
       if (filenameMatch) {

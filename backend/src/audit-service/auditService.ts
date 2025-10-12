@@ -2,6 +2,8 @@
 
 import { Request, Response } from 'express';
 import { query } from '../auth-service/database';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import { 
   AuditLog, 
   CreateAuditLogRequest, 
@@ -275,6 +277,8 @@ export const exportAuditLogs = async (req: Request, res: Response): Promise<void
     const userId = (req as any).user?.id;
     const tenantId = (req as any).user?.tenantId;
 
+    console.log('Export audit logs request:', { userId, tenantId, body: req.body });
+
     if (!userId || !tenantId) {
       res.status(401).json({
         success: false,
@@ -364,13 +368,49 @@ export const exportAuditLogs = async (req: Request, res: Response): Promise<void
       filename = `audit-logs-${new Date().toISOString().split('T')[0]}.csv`;
       contentType = 'text/csv';
     } else {
-      // For PDF, we'll return a download URL instead of the file directly
-      // This would typically involve generating a PDF file and storing it temporarily
-      res.status(501).json({
-        success: false,
-        message: 'PDF export not yet implemented'
-      } as AuditExportResponse);
+      // Generate PDF
+      console.log('Generating PDF for', logs.length, 'logs');
+      try {
+        const pdfBuffer = generatePDF(logs);
+        filename = `audit-logs-${new Date().toISOString().split('T')[0]}.pdf`;
+        contentType = 'application/pdf';
+      
+      // Set headers for PDF download
+      res.setHeader('Content-Type', contentType);
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Content-Length', pdfBuffer.length);
+
+      res.send(pdfBuffer);
+
+      // Log the export action
+      await query(
+        `INSERT INTO audit_logs (
+          tenant_id, user_id, action, resource_type, resource_id,
+          details, timestamp, previous_hash, current_hash
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+        [
+          tenantId,
+          userId,
+          AuditAction.AUDIT_LOG_EXPORTED,
+          ResourceType.AUDIT_LOG,
+          'export-' + Date.now(), // Generate a unique resource_id for export
+          JSON.stringify({ format: 'pdf', count: logs.length, filters }),
+          new Date(),
+          null, // previous_hash
+          crypto.createHash('sha256').update(`${tenantId}-${userId}-${Date.now()}`).digest('hex')
+        ]
+      );
+
       return;
+      } catch (pdfError) {
+        console.error('PDF generation error:', pdfError);
+        res.status(500).json({
+          success: false,
+          message: 'PDF generation failed'
+        } as AuditExportResponse);
+        return;
+      }
     }
 
     // Set headers for file download
@@ -387,7 +427,7 @@ export const exportAuditLogs = async (req: Request, res: Response): Promise<void
         details, timestamp, previous_hash, current_hash
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
       [
-        tenantId, userId, AuditAction.AUDIT_LOG_EXPORTED, ResourceType.SYSTEM, 'audit-logs',
+        tenantId, userId, AuditAction.AUDIT_LOG_EXPORTED, ResourceType.AUDIT_LOG, 'export-' + Date.now(),
         JSON.stringify({ format, filters, recordCount: logs.length }),
         new Date().toISOString(),
         null, // Will be calculated
@@ -435,6 +475,82 @@ const generateCSV = (logs: AuditLog[]): string => {
   return [headers, ...rows]
     .map(row => row.map(field => `"${String(field).replace(/"/g, '""')}"`).join(','))
     .join('\n');
+};
+
+// Helper function to generate PDF
+const generatePDF = (logs: AuditLog[]): Buffer => {
+  console.log('Starting PDF generation with', logs.length, 'logs');
+  const doc = new jsPDF('l', 'mm', 'a4'); // landscape orientation for better table fit
+  
+  // Add title
+  doc.setFontSize(16);
+  doc.text('Audit Logs Export', 14, 20);
+  
+  // Add generation date
+  doc.setFontSize(10);
+  doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 30);
+  doc.text(`Total Records: ${logs.length}`, 14, 35);
+  
+  // Prepare table data
+  const tableData = logs.map(log => [
+    new Date(log.timestamp).toLocaleString(),
+    `${log.first_name || ''} ${log.last_name || ''}`.trim() || log.email || 'Unknown',
+    log.action,
+    log.resourceType || 'N/A',
+    log.resourceId || 'N/A',
+    log.vaultId || 'N/A',
+    log.ipAddress || 'N/A',
+    log.details ? JSON.stringify(log.details).substring(0, 50) + '...' : 'N/A',
+    log.currentHash ? log.currentHash.substring(0, 12) + '...' : 'N/A'
+  ]);
+
+  // Define table columns
+  const columns = [
+    'Timestamp',
+    'User',
+    'Action',
+    'Resource Type',
+    'Resource ID',
+    'Vault ID',
+    'IP Address',
+    'Details',
+    'Hash'
+  ];
+
+  // Add table to PDF
+  autoTable(doc, {
+    head: [columns],
+    body: tableData,
+    startY: 40,
+    styles: {
+      fontSize: 7,
+      cellPadding: 1,
+    },
+    headStyles: {
+      fillColor: [66, 139, 202], // Blue header
+      textColor: 255,
+      fontStyle: 'bold',
+    },
+    alternateRowStyles: {
+      fillColor: [245, 245, 245], // Light gray alternating rows
+    },
+    columnStyles: {
+      0: { cellWidth: 20 }, // Timestamp
+      1: { cellWidth: 15 }, // User
+      2: { cellWidth: 18 }, // Action
+      3: { cellWidth: 15 }, // Resource Type
+      4: { cellWidth: 15 }, // Resource ID
+      5: { cellWidth: 15 }, // Vault ID
+      6: { cellWidth: 15 }, // IP Address
+      7: { cellWidth: 25 }, // Details
+      8: { cellWidth: 20 }, // Hash
+    },
+    margin: { top: 40, left: 14, right: 14 },
+  });
+
+  // Convert to buffer
+  console.log('PDF generation completed successfully');
+  return Buffer.from(doc.output('arraybuffer'));
 };
 
 // Utility function to log audit events (for use throughout the application)

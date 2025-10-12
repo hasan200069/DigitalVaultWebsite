@@ -120,4 +120,5 @@ export enum ResourceType {
   USER = 'USER',
   TENANT = 'TENANT',
   SYSTEM = 'SYSTEM',
+  AUDIT_LOG = 'AUDIT_LOG',
 }
