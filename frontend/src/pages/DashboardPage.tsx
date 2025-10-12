@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { vaultApiService } from '../services/vaultApi';
 import { inheritanceApiService } from '../services/inheritanceApi';
+import { auditApiService } from '../services/auditApi';
 import TrusteeApprovalsSection from '../components/TrusteeApprovalsSection';
 import { 
   DocumentTextIcon, 
@@ -11,7 +12,12 @@ import {
   ClockIcon,
   CloudArrowUpIcon,
   UserPlusIcon,
-  DocumentChartBarIcon
+  DocumentChartBarIcon,
+  UserIcon,
+  KeyIcon,
+  TrashIcon,
+  EyeIcon,
+  MagnifyingGlassIcon
 } from '@heroicons/react/24/outline';
 
 const DashboardPage: React.FC = () => {
@@ -20,6 +26,8 @@ const DashboardPage: React.FC = () => {
   const [stats, setStats] = useState<{ totalFiles: number; encryptedFiles: number; totalBytes: number }>({ totalFiles: 0, encryptedFiles: 0, totalBytes: 0 });
   const [beneficiaryCount, setBeneficiaryCount] = useState(0);
   const [recentActivityCount, setRecentActivityCount] = useState(0);
+  const [recentActivities, setRecentActivities] = useState<any[]>([]);
+  const [loadingActivities, setLoadingActivities] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -55,11 +63,30 @@ const DashboardPage: React.FC = () => {
         setBeneficiaryCount(totalBeneficiaries);
         console.log('Total beneficiaries:', totalBeneficiaries);
 
-        // Calculate recent activity count
-        const vaultFiles = vaultRes.success ? vaultRes.totalFiles : 0;
-        const activityCount = vaultFiles + totalPlans;
-        setRecentActivityCount(activityCount);
-        console.log('Recent activity count:', activityCount);
+        // Fetch recent activities from audit logs
+        setLoadingActivities(true);
+        try {
+          const auditRes = await auditApiService.getAuditLogs({ limit: 10 });
+          console.log('Recent activities response:', auditRes);
+          
+          if (auditRes.success && auditRes.logs) {
+            setRecentActivities(auditRes.logs);
+            setRecentActivityCount(auditRes.total || auditRes.logs.length);
+          } else {
+            // Fallback to calculated count
+            const vaultFiles = vaultRes.success ? vaultRes.totalFiles : 0;
+            const activityCount = vaultFiles + totalPlans;
+            setRecentActivityCount(activityCount);
+          }
+        } catch (error) {
+          console.error('Failed to load recent activities:', error);
+          // Fallback to calculated count
+          const vaultFiles = vaultRes.success ? vaultRes.totalFiles : 0;
+          const activityCount = vaultFiles + totalPlans;
+          setRecentActivityCount(activityCount);
+        } finally {
+          setLoadingActivities(false);
+        }
         
       } catch (e) {
         console.error('Failed to load dashboard stats', e);
@@ -83,6 +110,96 @@ const DashboardPage: React.FC = () => {
     navigate('/dashboard/audit');
     // In a real app, this might open reports or show specific audit data
     console.log('View reports clicked');
+  };
+
+  // Helper function to get icon for activity type
+  const getActivityIcon = (action: string) => {
+    switch (action) {
+      case 'LOGIN':
+      case 'LOGOUT':
+        return <UserIcon className="w-5 h-5" />;
+      case 'VAULT_ITEM_CREATED':
+        return <CloudArrowUpIcon className="w-5 h-5" />;
+      case 'VAULT_ITEM_DELETED':
+        return <TrashIcon className="w-5 h-5" />;
+      case 'VAULT_ITEM_VIEWED':
+      case 'VAULT_ITEM_DOWNLOADED':
+        return <EyeIcon className="w-5 h-5" />;
+      case 'VAULT_ITEM_SEARCHED':
+        return <MagnifyingGlassIcon className="w-5 h-5" />;
+      case 'INHERITANCE_PLAN_CREATED':
+      case 'INHERITANCE_PLAN_UPDATED':
+      case 'INHERITANCE_PLAN_DELETED':
+      case 'INHERITANCE_TRIGGERED':
+        return <UserGroupIcon className="w-5 h-5" />;
+      case 'AUDIT_LOG_EXPORTED':
+        return <DocumentChartBarIcon className="w-5 h-5" />;
+      default:
+        return <ClockIcon className="w-5 h-5" />;
+    }
+  };
+
+  // Helper function to format activity description
+  const formatActivityDescription = (log: any) => {
+    const action = log.action;
+    const user = `${log.first_name || ''} ${log.last_name || ''}`.trim() || log.email || 'Unknown User';
+    
+    switch (action) {
+      case 'LOGIN':
+        return `${user} logged in`;
+      case 'LOGOUT':
+        return `${user} logged out`;
+      case 'VAULT_ITEM_CREATED':
+        return `${user} uploaded a file`;
+      case 'VAULT_ITEM_DELETED':
+        return `${user} deleted a file`;
+      case 'VAULT_ITEM_VIEWED':
+        return `${user} viewed a file`;
+      case 'VAULT_ITEM_DOWNLOADED':
+        return `${user} downloaded a file`;
+      case 'VAULT_ITEM_SEARCHED':
+        return `${user} searched files`;
+      case 'INHERITANCE_PLAN_CREATED':
+        return `${user} created an inheritance plan`;
+      case 'INHERITANCE_PLAN_UPDATED':
+        return `${user} updated an inheritance plan`;
+      case 'INHERITANCE_PLAN_DELETED':
+        return `${user} deleted an inheritance plan`;
+      case 'INHERITANCE_TRIGGERED':
+        return `${user} triggered inheritance`;
+      case 'AUDIT_LOG_EXPORTED':
+        return `${user} exported audit logs`;
+      default:
+        return `${user} performed ${action.toLowerCase().replace(/_/g, ' ')}`;
+    }
+  };
+
+  // Helper function to get activity color
+  const getActivityColor = (action: string) => {
+    switch (action) {
+      case 'LOGIN':
+        return 'text-green-600 bg-green-100';
+      case 'LOGOUT':
+        return 'text-gray-600 bg-gray-100';
+      case 'VAULT_ITEM_CREATED':
+        return 'text-blue-600 bg-blue-100';
+      case 'VAULT_ITEM_DELETED':
+        return 'text-red-600 bg-red-100';
+      case 'VAULT_ITEM_VIEWED':
+      case 'VAULT_ITEM_DOWNLOADED':
+        return 'text-purple-600 bg-purple-100';
+      case 'VAULT_ITEM_SEARCHED':
+        return 'text-indigo-600 bg-indigo-100';
+      case 'INHERITANCE_PLAN_CREATED':
+      case 'INHERITANCE_PLAN_UPDATED':
+      case 'INHERITANCE_PLAN_DELETED':
+      case 'INHERITANCE_TRIGGERED':
+        return 'text-green-600 bg-green-100';
+      case 'AUDIT_LOG_EXPORTED':
+        return 'text-orange-600 bg-orange-100';
+      default:
+        return 'text-gray-600 bg-gray-100';
+    }
   };
   return (
     <div className="min-h-screen bg-gray-50">
@@ -258,15 +375,61 @@ const DashboardPage: React.FC = () => {
           <section>
             <h2 className="text-xl font-semibold text-gray-900 mb-6">Recent Activity</h2>
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
-              <div className="p-6">
-                <div className="text-center py-12">
-                  <ClockIcon className="mx-auto h-12 w-12 text-gray-400" />
-                  <h3 className="mt-2 text-sm font-medium text-gray-900">No recent activity</h3>
-                  <p className="mt-1 text-sm text-gray-500">
-                    Get started by uploading your first file or adding a beneficiary.
-                  </p>
+              {loadingActivities ? (
+                <div className="p-6">
+                  <div className="text-center py-12">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+                    <p className="mt-2 text-sm text-gray-500">Loading activities...</p>
+                  </div>
                 </div>
-              </div>
+              ) : recentActivities.length > 0 ? (
+                <div className="p-6">
+                  <div className="space-y-4">
+                    {recentActivities.slice(0, 10).map((activity, index) => (
+                      <div key={activity.id || index} className="flex items-center space-x-4 p-3 rounded-lg hover:bg-gray-50 transition-colors duration-200">
+                        <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${getActivityColor(activity.action)}`}>
+                          {getActivityIcon(activity.action)}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-900">
+                            {formatActivityDescription(activity)}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {new Date(activity.timestamp).toLocaleString()}
+                          </p>
+                        </div>
+                        {activity.details && (
+                          <div className="flex-shrink-0">
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                              {activity.resourceType}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  {recentActivities.length > 10 && (
+                    <div className="mt-4 text-center">
+                      <button
+                        onClick={() => navigate('/dashboard/audit')}
+                        className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+                      >
+                        View all activities →
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="p-6">
+                  <div className="text-center py-12">
+                    <ClockIcon className="mx-auto h-12 w-12 text-gray-400" />
+                    <h3 className="mt-2 text-sm font-medium text-gray-900">No recent activity</h3>
+                    <p className="mt-1 text-sm text-gray-500">
+                      Get started by uploading your first file or adding a beneficiary.
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
           </section>
         </div>
