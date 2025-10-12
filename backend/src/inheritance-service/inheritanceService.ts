@@ -1,6 +1,7 @@
 import { pool as db } from '../auth-service/database';
 import { logAuditEvent } from '../audit-service/auditService';
 import { AuditAction, ResourceType } from '../audit-service/types';
+import { NotificationHelper } from '../notification-service/notificationHelper';
 import type {
   InheritancePlan,
   Trustee,
@@ -175,6 +176,31 @@ export class InheritanceService {
       } catch (auditError) {
         console.error('Failed to create audit log for plan:', plan.id, auditError);
       }
+
+      // Send notifications
+      try {
+        await NotificationHelper.notifyInheritancePlanCreated(
+          tenantId,
+          plan.id,
+          plan.name,
+          request.trustees.length,
+          request.beneficiaries.length
+        );
+        
+        // Notify trustees about approval requirement
+        for (const trustee of request.trustees) {
+          await NotificationHelper.notifyTrusteeApprovalRequired(
+            tenantId,
+            plan.id,
+            plan.name,
+            trustee.email
+          );
+        }
+        
+        console.log('Notifications sent successfully for plan creation:', plan.id);
+      } catch (notificationError) {
+        console.error('Failed to send notifications for plan creation:', plan.id, notificationError);
+      }
       
       return this.mapPlanFromDbDirect(plan);
     } catch (error) {
@@ -327,7 +353,7 @@ export class InheritanceService {
       console.log('Creating audit log for inheritance plan approval:', plan.id);
       try {
         await logAuditEvent(
-          plan.tenantId,
+          plan.tenant_id,
           trusteeId,
           AuditAction.INHERITANCE_PLAN_UPDATED,
           ResourceType.INHERITANCE_PLAN,
@@ -342,6 +368,19 @@ export class InheritanceService {
         console.log('Audit log created successfully for plan approval:', plan.id);
       } catch (auditError) {
         console.error('Failed to create audit log for plan approval:', plan.id, auditError);
+      }
+
+      // Send notifications
+      try {
+        await NotificationHelper.notifyInheritancePlanUpdated(
+          plan.tenant_id,
+          plan.id,
+          plan.name,
+          'approved by trustee'
+        );
+        console.log('Notifications sent successfully for plan approval:', plan.id);
+      } catch (notificationError) {
+        console.error('Failed to send notifications for plan approval:', plan.id, notificationError);
       }
       
       return true;
@@ -430,7 +469,7 @@ export class InheritanceService {
       
       // Log audit event
       await logAuditEvent(
-        plan.tenantId,
+        plan.tenant_id,
         userId,
         AuditAction.INHERITANCE_TRIGGERED,
         ResourceType.INHERITANCE_PLAN,
@@ -442,6 +481,18 @@ export class InheritanceService {
           itemCount: parseInt(itemCountResult.rows[0].count)
         }
       );
+
+      // Send notifications
+      try {
+        await NotificationHelper.notifyInheritancePlanTriggered(
+          plan.tenant_id,
+          planId,
+          plan.name
+        );
+        console.log('Notifications sent successfully for inheritance trigger:', planId);
+      } catch (notificationError) {
+        console.error('Failed to send notifications for inheritance trigger:', planId, notificationError);
+      }
       
       return true;
     } catch (error) {
@@ -506,6 +557,18 @@ export class InheritanceService {
         console.log('Audit log created successfully for plan deletion:', planId);
       } catch (auditError) {
         console.error('Failed to create audit log for plan deletion:', planId, auditError);
+      }
+
+      // Send notifications
+      try {
+        await NotificationHelper.notifyInheritancePlanDeleted(
+          plan.tenant_id,
+          planId,
+          plan.name
+        );
+        console.log('Notifications sent successfully for plan deletion:', planId);
+      } catch (notificationError) {
+        console.error('Failed to send notifications for plan deletion:', planId, notificationError);
       }
       
       return true;
@@ -835,6 +898,19 @@ export class InheritanceService {
         console.log('Audit log created successfully for plan update:', planId);
       } catch (auditError) {
         console.error('Failed to create audit log for plan update:', planId, auditError);
+      }
+
+      // Send notifications
+      try {
+        await NotificationHelper.notifyInheritancePlanUpdated(
+          tenantId,
+          planId,
+          request.name,
+          'updated'
+        );
+        console.log('Notifications sent successfully for plan update:', planId);
+      } catch (notificationError) {
+        console.error('Failed to send notifications for plan update:', planId, notificationError);
       }
       
       // Log warning for missing trustees

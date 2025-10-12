@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { 
   Bars3Icon, 
@@ -10,6 +10,8 @@ import {
   UserIcon
 } from '@heroicons/react/24/outline';
 import { useAuth } from '../../contexts/AuthContext';
+import { NotificationDropdown } from '../NotificationDropdown';
+import { notificationApi } from '../../services/notificationApi';
 
 interface TopbarProps {
   onMenuClick: () => void;
@@ -17,9 +19,27 @@ interface TopbarProps {
 
 const Topbar: React.FC<TopbarProps> = ({ onMenuClick }) => {
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
+  const [notificationDropdownOpen, setNotificationDropdownOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+
+  // Load notification stats on component mount
+  const loadNotificationStats = async () => {
+    try {
+      const stats = await notificationApi.getStats();
+      setUnreadCount(stats.stats.unread);
+    } catch (error) {
+      console.error('Failed to load notification stats:', error);
+    }
+  };
+
+  useEffect(() => {
+    if (user) {
+      loadNotificationStats();
+    }
+  }, [user]);
 
   // Get current page name from pathname
   const getCurrentPageName = () => {
@@ -80,15 +100,27 @@ const Topbar: React.FC<TopbarProps> = ({ onMenuClick }) => {
         {/* Right side - Notifications and Profile */}
         <div className="flex items-center space-x-4">
           {/* Notifications */}
-          <button
-            type="button"
-            className="relative p-2 text-gray-400 hover:text-gray-500 hover:bg-gray-100 rounded-md"
-          >
-            <BellIcon className="h-6 w-6" />
-            <span className="absolute -top-1 -right-1 h-4 w-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
-              3
-            </span>
-          </button>
+          <div className="relative">
+            <button
+              type="button"
+              className="relative p-2 text-gray-400 hover:text-gray-500 hover:bg-gray-100 rounded-md"
+              onClick={() => setNotificationDropdownOpen(!notificationDropdownOpen)}
+            >
+              <BellIcon className="h-6 w-6" />
+              {unreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 h-4 w-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </span>
+              )}
+            </button>
+
+            {/* Notification Dropdown */}
+            <NotificationDropdown
+              isOpen={notificationDropdownOpen}
+              onClose={() => setNotificationDropdownOpen(false)}
+              onNotificationRead={loadNotificationStats}
+            />
+          </div>
 
           {/* Profile Dropdown */}
           <div className="relative">
@@ -151,11 +183,14 @@ const Topbar: React.FC<TopbarProps> = ({ onMenuClick }) => {
         </div>
       </div>
 
-      {/* Click outside to close dropdown */}
-      {profileDropdownOpen && (
+      {/* Click outside to close dropdowns */}
+      {(profileDropdownOpen || notificationDropdownOpen) && (
         <div
           className="fixed inset-0 z-40"
-          onClick={() => setProfileDropdownOpen(false)}
+          onClick={() => {
+            setProfileDropdownOpen(false);
+            setNotificationDropdownOpen(false);
+          }}
         />
       )}
     </div>
