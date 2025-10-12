@@ -1,5 +1,7 @@
 import { Request, Response } from 'express';
 import { query } from '../auth-service/database';
+import { logAuditEvent } from '../audit-service/auditService';
+import { AuditAction, ResourceType } from '../audit-service/types';
 import { 
   CreateItemRequest, 
   CreateItemResponse, 
@@ -149,6 +151,25 @@ export const createItem = async (req: Request, res: Response): Promise<void> => 
 
     // Generate presigned upload URL
     const { uploadUrl, expiresIn } = await generatePresignedUploadUrl(filePath, mimeType);
+
+    // Log audit event
+    await logAuditEvent(
+      tenantId,
+      userId,
+      AuditAction.VAULT_ITEM_CREATED,
+      ResourceType.VAULT_ITEM,
+      item.id,
+      {
+        itemName: item.name,
+        itemSize: item.fileSize,
+        itemType: item.mimeType,
+        isEncrypted: item.isEncrypted,
+        category: item.category,
+        tags: item.tags
+      },
+      item.id,
+      req
+    );
 
     res.status(201).json({
       success: true,
@@ -457,6 +478,23 @@ export const downloadFile = async (req: Request, res: Response): Promise<void> =
     
     const fileStream = await minioClient.getObject(bucketName, versionData.file_path);
     
+    // Log audit event
+    await logAuditEvent(
+      tenantId,
+      userId,
+      AuditAction.VAULT_ITEM_DOWNLOADED,
+      ResourceType.VAULT_ITEM,
+      versionData.item_id,
+      {
+        fileName: versionData.name,
+        fileSize: versionData.file_size,
+        mimeType: versionData.mime_type,
+        version: version
+      },
+      versionData.item_id,
+      req
+    );
+
     // Set headers for file download
     res.setHeader('Content-Type', versionData.mime_type || 'application/octet-stream');
     res.setHeader('Content-Disposition', `attachment; filename="${versionData.name}"`);
@@ -519,10 +557,31 @@ export const deleteItem = async (req: Request, res: Response): Promise<void> => 
       return;
     }
 
+    const item = itemResult.rows[0];
+
     // Soft delete the item (mark as inactive)
     await query(
       'UPDATE vault_items SET is_active = false, updated_at = CURRENT_TIMESTAMP WHERE id = $1',
       [id]
+    );
+
+    // Log audit event
+    await logAuditEvent(
+      tenantId,
+      userId,
+      AuditAction.VAULT_ITEM_DELETED,
+      ResourceType.VAULT_ITEM,
+      item.id,
+      {
+        itemName: item.name,
+        itemSize: item.file_size,
+        itemType: item.mime_type,
+        isEncrypted: item.is_encrypted,
+        category: item.category,
+        tags: item.tags
+      },
+      item.id,
+      req
     );
 
     res.json({
@@ -890,6 +949,23 @@ export const searchItems = async (req: Request, res: Response): Promise<void> =>
     }));
 
     const took = Date.now() - startTime;
+
+    // Log audit event
+    await logAuditEvent(
+      tenantId,
+      userId,
+      AuditAction.VAULT_ITEM_SEARCHED,
+      ResourceType.SYSTEM,
+      'search',
+      {
+        query: searchQuery,
+        filters: filters,
+        resultCount: total,
+        searchTime: took
+      },
+      undefined,
+      req
+    );
 
     res.json({
       success: true,

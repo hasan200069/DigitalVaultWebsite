@@ -215,6 +215,36 @@ CREATE INDEX IF NOT EXISTS idx_inheritance_beneficiaries_email ON inheritance_be
 CREATE INDEX IF NOT EXISTS idx_inheritance_items_plan_id ON inheritance_items(plan_id);
 CREATE INDEX IF NOT EXISTS idx_inheritance_items_vault_item_id ON inheritance_items(vault_item_id);
 
+-- Create audit logs table for immutable audit trail
+CREATE TABLE IF NOT EXISTS audit_logs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    vault_id UUID REFERENCES vault_items(id) ON DELETE CASCADE,
+    action VARCHAR(100) NOT NULL,
+    resource_type VARCHAR(50) NOT NULL,
+    resource_id VARCHAR(255) NOT NULL,
+    details JSONB,
+    ip_address INET,
+    user_agent TEXT,
+    session_id VARCHAR(255),
+    timestamp TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    previous_hash VARCHAR(64),
+    current_hash VARCHAR(64) NOT NULL,
+    signature TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+
+-- Create indexes for audit logs
+CREATE INDEX IF NOT EXISTS idx_audit_logs_tenant_id ON audit_logs(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_user_id ON audit_logs(user_id);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_vault_id ON audit_logs(vault_id);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_action ON audit_logs(action);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_resource_type ON audit_logs(resource_type);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_timestamp ON audit_logs(timestamp);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_current_hash ON audit_logs(current_hash);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_previous_hash ON audit_logs(previous_hash);
+
 -- Insert a default admin user (password: admin123)
 INSERT INTO users (tenant_id, email, password_hash, first_name, last_name, is_admin) 
 SELECT 

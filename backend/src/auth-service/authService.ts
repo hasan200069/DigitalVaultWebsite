@@ -1,6 +1,8 @@
 import { Request, Response } from 'express';
 import { query } from './database';
 import { hashPassword, verifyPassword, validatePasswordStrength } from './password';
+import { logAuditEvent } from '../audit-service/auditService';
+import { AuditAction, ResourceType } from '../audit-service/types';
 import { 
   generateAccessToken, 
   generateRefreshToken, 
@@ -172,11 +174,27 @@ export const login = async (req: Request, res: Response): Promise<void> => {
 
     // Get user from database
     const result = await query(
-      'SELECT id, email, password_hash, first_name, last_name, is_active FROM users WHERE tenant_id = $1 AND email = $2',
+      'SELECT id, email, password_hash, first_name, last_name, is_active, tenant_id FROM users WHERE tenant_id = $1 AND email = $2',
       [tenantId, email.toLowerCase()]
     );
 
     if (result.rows.length === 0) {
+      // Log failed login attempt
+      await logAuditEvent(
+        'unknown', // No tenant since user not found
+        'unknown', // No user ID since user not found
+        AuditAction.LOGIN_FAILED,
+        ResourceType.USER,
+        email,
+        {
+          email: email,
+          reason: 'user_not_found',
+          ipAddress: req.ip
+        },
+        undefined,
+        req
+      );
+
       res.status(401).json({
         success: false,
         message: 'Invalid email or password'
@@ -198,6 +216,22 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     // Verify password
     const isPasswordValid = await verifyPassword(password, user.password_hash);
     if (!isPasswordValid) {
+      // Log failed login attempt
+      await logAuditEvent(
+        tenantId,
+        user.id,
+        AuditAction.LOGIN_FAILED,
+        ResourceType.USER,
+        user.id,
+        {
+          email: email,
+          reason: 'invalid_password',
+          ipAddress: req.ip
+        },
+        undefined,
+        req
+      );
+
       res.status(401).json({
         success: false,
         message: 'Invalid email or password'
@@ -215,6 +249,22 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     await query(
       'INSERT INTO refresh_tokens (user_id, token_hash, expires_at) VALUES ($1, $2, $3)',
       [user.id, refreshTokenHash, expiresAt]
+    );
+
+    // Log audit event
+    await logAuditEvent(
+      user.tenant_id,
+      user.id,
+      AuditAction.LOGIN,
+      ResourceType.USER,
+      user.id,
+      {
+        email: user.email,
+        loginMethod: 'password',
+        sessionId: (req as any).sessionID || 'unknown'
+      },
+      undefined,
+      req
     );
 
     res.json({

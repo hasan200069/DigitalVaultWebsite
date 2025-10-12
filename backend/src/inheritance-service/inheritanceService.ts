@@ -1,4 +1,6 @@
 import { pool as db } from '../auth-service/database';
+import { logAuditEvent } from '../audit-service/auditService';
+import { AuditAction, ResourceType } from '../audit-service/types';
 import type {
   InheritancePlan,
   Trustee,
@@ -48,6 +50,13 @@ export class InheritanceService {
       );
       
       const plan = planResult.rows[0];
+      
+      // Get user's tenant_id for audit logging
+      const userResult = await client.query(
+        'SELECT tenant_id FROM users WHERE id = $1',
+        [ownerId]
+      );
+      const tenantId = userResult.rows[0].tenant_id;
       
       // Create trustees with Shamir shares
       const missingTrustees: string[] = [];
@@ -144,6 +153,28 @@ export class InheritanceService {
       }
       
       await client.query('COMMIT');
+      
+      // Log audit event
+      console.log('Creating audit log for inheritance plan creation:', plan.id);
+      try {
+        await logAuditEvent(
+          tenantId,
+          ownerId,
+          AuditAction.INHERITANCE_PLAN_CREATED,
+          ResourceType.INHERITANCE_PLAN,
+          plan.id,
+          {
+            planName: plan.name,
+            trusteeCount: request.trustees.length,
+            beneficiaryCount: request.beneficiaries.length,
+            itemCount: request.vaultItemIds.length,
+            kThreshold: request.kThreshold
+          }
+        );
+        console.log('Audit log created successfully for plan:', plan.id);
+      } catch (auditError) {
+        console.error('Failed to create audit log for plan:', plan.id, auditError);
+      }
       
       return this.mapPlanFromDbDirect(plan);
     } catch (error) {
@@ -252,6 +283,21 @@ export class InheritanceService {
         throw new Error('Plan already approved by this trustee');
       }
       
+      // Get plan details with owner's tenant_id for audit logging
+      const planResult = await client.query(
+        `SELECT ip.*, u.tenant_id 
+         FROM inheritance_plans ip 
+         JOIN users u ON ip.owner_id = u.id 
+         WHERE ip.id = $1`,
+        [trustee.plan_id]
+      );
+      
+      if (planResult.rows.length === 0) {
+        throw new Error('Plan not found');
+      }
+      
+      const plan = planResult.rows[0];
+      
       // Update trustee approval
       await client.query(
         'UPDATE inheritance_trustees SET has_approved = true, approved_at = NOW() WHERE id = $1',
@@ -265,14 +311,7 @@ export class InheritanceService {
       );
       
       const approvalCount = parseInt(approvalCountResult.rows[0].count);
-      
-      // Get plan details
-      const planResult = await client.query(
-        'SELECT k_threshold FROM inheritance_plans WHERE id = $1',
-        [trustee.plan_id]
-      );
-      
-      const kThreshold = planResult.rows[0].k_threshold;
+      const kThreshold = plan.k_threshold;
       
       if (approvalCount >= kThreshold) {
         // Plan is ready to be triggered
@@ -283,6 +322,28 @@ export class InheritanceService {
       }
       
       await client.query('COMMIT');
+      
+      // Log audit event
+      console.log('Creating audit log for inheritance plan approval:', plan.id);
+      try {
+        await logAuditEvent(
+          plan.tenantId,
+          trusteeId,
+          AuditAction.INHERITANCE_PLAN_UPDATED,
+          ResourceType.INHERITANCE_PLAN,
+          plan.id,
+          {
+            planName: plan.name,
+            action: 'approval',
+            trusteeEmail: trustee.email,
+            approvalStatus: 'approved'
+          }
+        );
+        console.log('Audit log created successfully for plan approval:', plan.id);
+      } catch (auditError) {
+        console.error('Failed to create audit log for plan approval:', plan.id, auditError);
+      }
+      
       return true;
     } catch (error) {
       await client.query('ROLLBACK');
@@ -301,9 +362,12 @@ export class InheritanceService {
     try {
       await client.query('BEGIN');
       
-      // Get plan details
+      // Get plan details with owner's tenant_id for audit logging
       const planResult = await client.query(
-        'SELECT * FROM inheritance_plans WHERE id = $1 AND owner_id = $2',
+        `SELECT ip.*, u.tenant_id 
+         FROM inheritance_plans ip 
+         JOIN users u ON ip.owner_id = u.id 
+         WHERE ip.id = $1 AND ip.owner_id = $2`,
         [planId, userId]
       );
       
@@ -349,6 +413,36 @@ export class InheritanceService {
       // TODO: Start the inheritance process
       
       await client.query('COMMIT');
+      
+      // Get counts for audit logging
+      const trusteeCountResult = await client.query(
+        'SELECT COUNT(*) as count FROM inheritance_trustees WHERE plan_id = $1',
+        [planId]
+      );
+      const beneficiaryCountResult = await client.query(
+        'SELECT COUNT(*) as count FROM inheritance_beneficiaries WHERE plan_id = $1',
+        [planId]
+      );
+      const itemCountResult = await client.query(
+        'SELECT COUNT(*) as count FROM inheritance_items WHERE plan_id = $1',
+        [planId]
+      );
+      
+      // Log audit event
+      await logAuditEvent(
+        plan.tenantId,
+        userId,
+        AuditAction.INHERITANCE_TRIGGERED,
+        ResourceType.INHERITANCE_PLAN,
+        planId,
+        {
+          planName: plan.name,
+          trusteeCount: parseInt(trusteeCountResult.rows[0].count),
+          beneficiaryCount: parseInt(beneficiaryCountResult.rows[0].count),
+          itemCount: parseInt(itemCountResult.rows[0].count)
+        }
+      );
+      
       return true;
     } catch (error) {
       await client.query('ROLLBACK');
@@ -367,9 +461,12 @@ export class InheritanceService {
     try {
       await client.query('BEGIN');
 
-      // Verify plan ownership
+      // Get plan details with owner's tenant_id for verification and audit logging
       const planResult = await client.query(
-        'SELECT id FROM inheritance_plans WHERE id = $1 AND owner_id = $2',
+        `SELECT ip.*, u.tenant_id 
+         FROM inheritance_plans ip 
+         JOIN users u ON ip.owner_id = u.id 
+         WHERE ip.id = $1 AND ip.owner_id = $2`,
         [planId, userId]
       );
 
@@ -377,14 +474,8 @@ export class InheritanceService {
         throw new Error('Plan not found or not authorized');
       }
 
-      // Check if plan can be deleted (not triggered or completed)
-      const statusResult = await client.query(
-        'SELECT status FROM inheritance_plans WHERE id = $1',
-        [planId]
-      );
-
-      const status = statusResult.rows[0].status;
-      if (status === 'triggered' || status === 'completed') {
+      const plan = planResult.rows[0];
+      if (plan.status === 'triggered' || plan.status === 'completed') {
         throw new Error('Cannot delete a triggered or completed plan');
       }
 
@@ -397,6 +488,26 @@ export class InheritanceService {
       await client.query('DELETE FROM inheritance_plans WHERE id = $1', [planId]);
 
       await client.query('COMMIT');
+      
+      // Log audit event
+      console.log('Creating audit log for inheritance plan deletion:', planId);
+      try {
+        await logAuditEvent(
+          plan.tenant_id,
+          userId,
+          AuditAction.INHERITANCE_PLAN_DELETED,
+          ResourceType.INHERITANCE_PLAN,
+          planId,
+          {
+            planName: plan.name,
+            status: plan.status
+          }
+        );
+        console.log('Audit log created successfully for plan deletion:', planId);
+      } catch (auditError) {
+        console.error('Failed to create audit log for plan deletion:', planId, auditError);
+      }
+      
       return true;
     } catch (error) {
       await client.query('ROLLBACK');
@@ -695,6 +806,36 @@ export class InheritanceService {
       }
       
       await client.query('COMMIT');
+      
+      // Get user's tenant_id for audit logging
+      const userResult = await client.query(
+        'SELECT tenant_id FROM users WHERE id = $1',
+        [ownerId]
+      );
+      const tenantId = userResult.rows[0].tenant_id;
+      
+      // Log audit event
+      console.log('Creating audit log for inheritance plan update:', planId);
+      try {
+        await logAuditEvent(
+          tenantId,
+          ownerId,
+          AuditAction.INHERITANCE_PLAN_UPDATED,
+          ResourceType.INHERITANCE_PLAN,
+          planId,
+          {
+            planName: request.name,
+            action: 'update',
+            trusteeCount: request.trustees.length,
+            beneficiaryCount: request.beneficiaries.length,
+            itemCount: request.vaultItemIds.length,
+            kThreshold: request.kThreshold
+          }
+        );
+        console.log('Audit log created successfully for plan update:', planId);
+      } catch (auditError) {
+        console.error('Failed to create audit log for plan update:', planId, auditError);
+      }
       
       // Log warning for missing trustees
       if (missingTrustees.length > 0) {

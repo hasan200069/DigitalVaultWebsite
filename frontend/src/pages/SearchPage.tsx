@@ -237,14 +237,14 @@ const SearchPage: React.FC = () => {
       <div className="bg-white shadow-sm border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex items-center justify-between">
-            <div>
+          <div>
               <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl flex items-center">
                 <SparklesIcon className="h-8 w-8 text-blue-600 mr-3" />
-                Search
-              </h1>
-              <p className="mt-1 text-base text-gray-600">
-                Find and discover your digital assets quickly and efficiently.
-              </p>
+              Search
+            </h1>
+            <p className="mt-1 text-base text-gray-600">
+              Find and discover your digital assets quickly and efficiently.
+            </p>
             </div>
             
             {hasSearched && totalResults > 0 && (
@@ -274,7 +274,7 @@ const SearchPage: React.FC = () => {
                   {isLoading ? (
                     <ArrowPathIcon className="h-5 w-5 text-gray-400 animate-spin" />
                   ) : (
-                    <MagnifyingGlassIcon className="h-5 w-5 text-gray-400" />
+                  <MagnifyingGlassIcon className="h-5 w-5 text-gray-400" />
                   )}
                 </div>
                 <input
@@ -285,14 +285,14 @@ const SearchPage: React.FC = () => {
                   placeholder="Search your vault... (try: type:pdf, tag:important, size:>1MB)"
                 />
                 <div className="absolute inset-y-0 right-0 flex items-center pr-4 space-x-2">
-                  {searchQuery && (
-                    <button
+                {searchQuery && (
+                  <button
                       onClick={handleClearSearch}
                       className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
-                    >
+                  >
                       <XMarkIcon className="h-5 w-5" />
-                    </button>
-                  )}
+                  </button>
+                )}
                   <button
                     onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
                     className={`p-1 rounded transition-colors ${
@@ -303,9 +303,9 @@ const SearchPage: React.FC = () => {
                   >
                     <FunnelIcon className="h-5 w-5" />
                   </button>
-                </div>
-              </div>
-              
+            </div>
+          </div>
+
               {/* Advanced Filters */}
               {showAdvancedFilters && (
                 <div className="mt-4 p-4 bg-gray-50 rounded-lg">
@@ -364,12 +364,12 @@ const SearchPage: React.FC = () => {
                   </div>
                   
                   <div className="mt-4 flex justify-end">
-                    <button
+              <button 
                       onClick={handleClearFilters}
-                      className="text-sm text-blue-600 hover:text-blue-500"
-                    >
+                className="text-sm text-blue-600 hover:text-blue-500"
+              >
                       Clear All Filters
-                    </button>
+              </button>
                   </div>
                 </div>
               )}
@@ -511,13 +511,13 @@ const SearchPage: React.FC = () => {
                     No files match your search for "{searchQuery}". Try different keywords or check your filters.
                   </p>
                   <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                    <button
+                    <button 
                       onClick={handleClearSearch}
                       className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 transition-colors"
                     >
                       Clear Search
                     </button>
-                    <button
+                    <button 
                       onClick={handleUploadFiles}
                       className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                     >

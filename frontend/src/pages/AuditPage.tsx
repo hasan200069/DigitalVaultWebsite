@@ -1,250 +1,391 @@
-import React, { useState } from 'react';
-import { 
-  DocumentTextIcon, 
-  ArrowDownTrayIcon,
+// AuditPage component for viewing and exporting audit logs
+
+import React, { useState, useEffect } from 'react';
+import {
+  DocumentTextIcon,
   FunnelIcon,
+  ArrowDownTrayIcon,
   CalendarIcon,
   UserIcon,
-  ShieldCheckIcon,
-  ExclamationTriangleIcon
+  MagnifyingGlassIcon,
+  XMarkIcon,
+  ChevronDownIcon,
+  ChevronUpIcon
 } from '@heroicons/react/24/outline';
+import AuditTable from '../components/AuditTable';
+import { auditApiService } from '../services/auditApi';
+import type { AuditLog, GetAuditLogsRequest } from '../services/auditApi';
 
 const AuditPage: React.FC = () => {
-  const [selectedTimeRange, setSelectedTimeRange] = useState('7d');
-  const [selectedEventType, setSelectedEventType] = useState('all');
+  const [logs, setLogs] = useState<AuditLog[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [totalLogs, setTotalLogs] = useState(0);
+  const [currentPage, setCurrentPage] = useState(0);
+  const [logsPerPage] = useState(50);
 
-  const timeRanges = [
-    { id: '1d', label: 'Last 24 hours' },
-    { id: '7d', label: 'Last 7 days' },
-    { id: '30d', label: 'Last 30 days' },
-    { id: '90d', label: 'Last 90 days' },
-  ];
+  // Filter states
+  const [showFilters, setShowFilters] = useState(false);
+  const [filters, setFilters] = useState<GetAuditLogsRequest>({
+    limit: logsPerPage,
+    offset: 0
+  });
 
-  const eventTypes = [
-    { id: 'all', label: 'All Events' },
-    { id: 'login', label: 'Login Events' },
-    { id: 'file', label: 'File Operations' },
-    { id: 'security', label: 'Security Events' },
-  ];
+  // Available options for filters
+  const [availableActions, setAvailableActions] = useState<string[]>([]);
+  const [availableResourceTypes, setAvailableResourceTypes] = useState<string[]>([]);
 
-  const handleExportLogs = () => {
-    // In a real app, this would trigger a download of audit logs
-    console.log('Export audit logs clicked');
-    alert('Audit logs export would start here');
+  // Date range states
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+
+  // Load available filter options
+  useEffect(() => {
+    const loadFilterOptions = async () => {
+      try {
+        const [actions, resourceTypes] = await Promise.all([
+          auditApiService.getAvailableActions(),
+          auditApiService.getAvailableResourceTypes()
+        ]);
+        setAvailableActions(actions);
+        setAvailableResourceTypes(resourceTypes);
+      } catch (error) {
+        console.error('Error loading filter options:', error);
+      }
+    };
+
+    loadFilterOptions();
+  }, []);
+
+  // Load audit logs
+  const loadAuditLogs = async (page: number = 0, customFilters?: GetAuditLogsRequest) => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const requestFilters = {
+        ...filters,
+        ...customFilters,
+        limit: logsPerPage,
+        offset: page * logsPerPage
+      };
+
+      const response = await auditApiService.getAuditLogs(requestFilters);
+      
+      setLogs(response.logs);
+      setTotalLogs(response.total);
+      setCurrentPage(page);
+    } catch (err) {
+      console.error('Error loading audit logs:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load audit logs');
+      setLogs([]);
+      setTotalLogs(0);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleScheduleReports = () => {
-    // In a real app, this would open a schedule reports modal
-    console.log('Schedule reports clicked');
-    alert('Schedule reports dialog would open here');
+  // Load logs on component mount and when filters change
+  useEffect(() => {
+    loadAuditLogs(0);
+  }, [filters]);
+
+  // Handle filter changes
+  const handleFilterChange = (key: keyof GetAuditLogsRequest, value: any) => {
+    setFilters(prev => ({
+      ...prev,
+      [key]: value
+    }));
+    setCurrentPage(0);
   };
 
-  const handleApplyFilters = () => {
-    console.log('Applying filters:', { selectedTimeRange, selectedEventType });
-    // In a real app, this would apply the filters and refresh the audit logs
+  // Handle date range changes
+  const handleDateChange = (type: 'from' | 'to', value: string) => {
+    if (type === 'from') {
+      setDateFrom(value);
+      setFilters(prev => ({
+        ...prev,
+        dateFrom: value || undefined
+      }));
+    } else {
+      setDateTo(value);
+      setFilters(prev => ({
+        ...prev,
+        dateTo: value || undefined
+      }));
+    }
+    setCurrentPage(0);
   };
+
+  // Clear all filters
+  const clearFilters = () => {
+    setFilters({
+      limit: logsPerPage,
+      offset: 0
+    });
+    setDateFrom('');
+    setDateTo('');
+    setCurrentPage(0);
+  };
+
+  // Handle export
+  const handleExport = async (format: 'csv' | 'pdf') => {
+    try {
+      await auditApiService.exportAuditLogs({
+        format,
+        dateFrom: filters.dateFrom,
+        dateTo: filters.dateTo,
+        filters: {
+          action: filters.action,
+          resourceType: filters.resourceType,
+          userId: filters.userId
+        }
+      });
+    } catch (error) {
+      console.error('Export error:', error);
+      alert('Export failed. Please try again.');
+    }
+  };
+
+  // Handle view details
+  const handleViewDetails = (log: AuditLog) => {
+    // Create a detailed view of the audit log
+    const details = `
+Audit Log Details:
+=================
+
+ID: ${log.id}
+Timestamp: ${new Date(log.timestamp).toLocaleString()}
+User: ${log.first_name || ''} ${log.last_name || ''} (${log.email || ''})
+Action: ${log.action}
+Resource Type: ${log.resourceType}
+Resource ID: ${log.resourceId}
+Vault ID: ${log.vaultId || 'N/A'}
+IP Address: ${log.ipAddress || 'N/A'}
+User Agent: ${log.userAgent || 'N/A'}
+Session ID: ${log.sessionId || 'N/A'}
+
+Hash Chain:
+Previous Hash: ${log.previousHash || 'N/A'}
+Current Hash: ${log.currentHash}
+
+Details:
+${log.details ? JSON.stringify(log.details, null, 2) : 'No additional details'}
+    `;
+
+    alert(details);
+  };
+
+  const totalPages = Math.ceil(totalLogs / logsPerPage);
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header Section */}
-      <div className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+    <div className="min-h-screen bg-gray-50 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Header */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">
-                Audit
+              <h1 className="text-3xl font-bold text-gray-900 flex items-center">
+                <DocumentTextIcon className="h-8 w-8 text-blue-600 mr-3" />
+                Audit & Compliance
               </h1>
-              <p className="mt-1 text-base text-gray-600">
-                Monitor and track all activities and access to your digital vault.
+              <p className="mt-2 text-gray-600">
+                Immutable audit trail with hash-chained logging for compliance and security monitoring.
               </p>
             </div>
-            <div className="mt-4 sm:mt-0">
-              <button 
-                onClick={handleExportLogs}
-                className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
+            
+            {/* Export buttons */}
+            <div className="flex space-x-3">
+              <button
+                onClick={() => handleExport('csv')}
+                className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
               >
                 <ArrowDownTrayIcon className="h-4 w-4 mr-2" />
-                Export Logs
+                Export CSV
+              </button>
+              <button
+                onClick={() => handleExport('pdf')}
+                className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              >
+                <ArrowDownTrayIcon className="h-4 w-4 mr-2" />
+                Export PDF
               </button>
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="space-y-6">
-          {/* Quick Stats */}
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-4">
-            <div className="bg-white overflow-hidden shadow-sm rounded-xl border border-gray-200">
-              <div className="p-6">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                      <DocumentTextIcon className="w-5 h-5 text-blue-600" />
-                    </div>
-                  </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-500">Total Events</p>
-                    <p className="text-2xl font-bold text-gray-900">0</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white overflow-hidden shadow-sm rounded-xl border border-gray-200">
-              <div className="p-6">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                      <UserIcon className="w-5 h-5 text-green-600" />
-                    </div>
-                  </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-500">Login Events</p>
-                    <p className="text-2xl font-bold text-gray-900">0</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white overflow-hidden shadow-sm rounded-xl border border-gray-200">
-              <div className="p-6">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <div className="w-10 h-10 bg-yellow-100 rounded-lg flex items-center justify-center">
-                      <ShieldCheckIcon className="w-5 h-5 text-yellow-600" />
-                    </div>
-                  </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-500">Security Events</p>
-                    <p className="text-2xl font-bold text-gray-900">0</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white overflow-hidden shadow-sm rounded-xl border border-gray-200">
-              <div className="p-6">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
-                      <ExclamationTriangleIcon className="w-5 h-5 text-red-600" />
-                    </div>
-                  </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-500">Alerts</p>
-                    <p className="text-2xl font-bold text-gray-900">0</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Filters */}
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
-            <div className="flex flex-col sm:flex-row gap-4">
-              <div className="flex-1">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Time Range</label>
-                <select
-                  value={selectedTimeRange}
-                  onChange={(e) => setSelectedTimeRange(e.target.value)}
-                  className="block w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500"
-                >
-                  {timeRanges.map((range) => (
-                    <option key={range.id} value={range.id}>
-                      {range.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="flex-1">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Event Type</label>
-                <select
-                  value={selectedEventType}
-                  onChange={(e) => setSelectedEventType(e.target.value)}
-                  className="block w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500"
-                >
-                  {eventTypes.map((type) => (
-                    <option key={type.id} value={type.id}>
-                      {type.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="flex items-end">
-                <button 
-                  onClick={handleApplyFilters}
-                  className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
+        {/* Filters */}
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm mb-6">
+          <div className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-medium text-gray-900">Filters</h3>
+              <div className="flex items-center space-x-3">
+                <button
+                  onClick={() => setShowFilters(!showFilters)}
+                  className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
                 >
                   <FunnelIcon className="h-4 w-4 mr-2" />
-                  Apply Filters
+                  {showFilters ? 'Hide' : 'Show'} Filters
+                  {showFilters ? (
+                    <ChevronUpIcon className="h-4 w-4 ml-2" />
+                  ) : (
+                    <ChevronDownIcon className="h-4 w-4 ml-2" />
+                  )}
+                </button>
+                <button
+                  onClick={clearFilters}
+                  className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+                >
+                  <XMarkIcon className="h-4 w-4 mr-2" />
+                  Clear All
                 </button>
               </div>
             </div>
-          </div>
 
-          {/* Audit Logs Table */}
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
-            <div className="px-6 py-4 border-b border-gray-200">
-              <h3 className="text-lg font-medium text-gray-900">Audit Logs</h3>
-            </div>
-            
-            {/* Empty State */}
-            <div className="text-center py-16 px-6">
-              <div className="mx-auto h-16 w-16 text-gray-300 mb-4">
-                <DocumentTextIcon className="h-full w-full" />
+            {showFilters && (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* Action filter */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Action
+                  </label>
+                  <select
+                    value={filters.action || ''}
+                    onChange={(e) => handleFilterChange('action', e.target.value || undefined)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="">All Actions</option>
+                    {availableActions.map(action => (
+                      <option key={action} value={action}>
+                        {action.replace(/_/g, ' ')}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Resource Type filter */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Resource Type
+                  </label>
+                  <select
+                    value={filters.resourceType || ''}
+                    onChange={(e) => handleFilterChange('resourceType', e.target.value || undefined)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="">All Types</option>
+                    {availableResourceTypes.map(type => (
+                      <option key={type} value={type}>
+                        {type.replace(/_/g, ' ')}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Date From */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Date From
+                  </label>
+                  <input
+                    type="date"
+                    value={dateFrom}
+                    onChange={(e) => handleDateChange('from', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+
+                {/* Date To */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Date To
+                  </label>
+                  <input
+                    type="date"
+                    value={dateTo}
+                    onChange={(e) => handleDateChange('to', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
               </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">No audit logs</h3>
-              <p className="text-gray-500 mb-6 max-w-md mx-auto">
-                Audit logs will appear here as you use the digital vault. All activities are automatically tracked and logged.
+            )}
+          </div>
+        </div>
+
+        {/* Results summary */}
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 mb-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-medium text-gray-900">
+                Audit Logs
+              </h3>
+              <p className="text-sm text-gray-600">
+                {totalLogs.toLocaleString()} total logs found
               </p>
-              <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                <button 
-                  onClick={handleExportLogs}
-                  className="inline-flex items-center px-6 py-3 border border-gray-300 text-base font-medium rounded-lg shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
-                >
-                  <ArrowDownTrayIcon className="h-5 w-5 mr-2" />
-                  Export Audit Logs
-                </button>
-                <button 
-                  onClick={handleScheduleReports}
-                  className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-lg shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
-                >
-                  <CalendarIcon className="h-5 w-5 mr-2" />
-                  Schedule Reports
-                </button>
-              </div>
             </div>
-          </div>
-
-          {/* Audit Information */}
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">About Audit Logs</h3>
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-              <div>
-                <h4 className="text-sm font-medium text-gray-900 mb-2">What's Tracked</h4>
-                <ul className="text-sm text-gray-500 space-y-1">
-                  <li>• Login and logout events</li>
-                  <li>• File uploads and downloads</li>
-                  <li>• Permission changes</li>
-                  <li>• Security events and alerts</li>
-                  <li>• System configuration changes</li>
-                </ul>
-              </div>
-              <div>
-                <h4 className="text-sm font-medium text-gray-900 mb-2">Data Retention</h4>
-                <ul className="text-sm text-gray-500 space-y-1">
-                  <li>• Logs are retained for 2 years</li>
-                  <li>• Encrypted and tamper-proof</li>
-                  <li>• Available for compliance reporting</li>
-                  <li>• Real-time monitoring and alerts</li>
-                  <li>• Exportable in multiple formats</li>
-                </ul>
-              </div>
+            <div className="text-sm text-gray-500">
+              Page {currentPage + 1} of {totalPages}
             </div>
           </div>
         </div>
+
+        {/* Error message */}
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-md p-4 mb-6">
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <XMarkIcon className="h-5 w-5 text-red-400" />
+              </div>
+              <div className="ml-3">
+                <h3 className="text-sm font-medium text-red-800">
+                  Error loading audit logs
+                </h3>
+                <div className="mt-2 text-sm text-red-700">
+                  {error}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Audit table */}
+        <AuditTable
+          logs={logs}
+          isLoading={isLoading}
+          onViewDetails={handleViewDetails}
+        />
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 mt-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => loadAuditLogs(currentPage - 1)}
+                  disabled={currentPage === 0 || isLoading}
+                  className="px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Previous
+                </button>
+                <span className="px-3 py-2 text-sm text-gray-700">
+                  Page {currentPage + 1} of {totalPages}
+                </span>
+                <button
+                  onClick={() => loadAuditLogs(currentPage + 1)}
+                  disabled={currentPage >= totalPages - 1 || isLoading}
+                  className="px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Next
+                </button>
+              </div>
+              <div className="text-sm text-gray-500">
+                Showing {currentPage * logsPerPage + 1} to{' '}
+                {Math.min((currentPage + 1) * logsPerPage, totalLogs)} of{' '}
+                {totalLogs.toLocaleString()} results
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

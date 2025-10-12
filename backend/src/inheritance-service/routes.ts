@@ -13,6 +13,7 @@ router.use(authenticateToken);
  */
 router.post('/plans', async (req, res) => {
   try {
+    console.log('=== INHERITANCE ROUTE: Creating plan ===');
     const userId = (req as any).user.id;
     const request: CreatePlanRequest = req.body;
     
@@ -116,6 +117,7 @@ router.get('/plans/:id', async (req, res) => {
  */
 router.post('/plans/:id/approve', async (req, res) => {
   try {
+    console.log('=== INHERITANCE ROUTE: Approving plan ===');
     const userId = (req as any).user.id;
     const planId = req.params.id;
     const request: ApprovePlanRequest = req.body;
@@ -168,6 +170,7 @@ router.post('/plans/:id/approve', async (req, res) => {
  */
 router.post('/plans/:id/trigger', async (req, res) => {
   try {
+    console.log('=== INHERITANCE ROUTE: Triggering plan ===');
     const userId = (req as any).user.id;
     const planId = req.params.id;
     const request: TriggerInheritanceRequest = req.body;
@@ -220,6 +223,7 @@ router.get('/trustee-plans', async (req, res) => {
  */
 router.delete('/plans/:id', async (req, res) => {
   try {
+    console.log('=== INHERITANCE ROUTE: Deleting plan ===');
     const userId = (req as any).user.id;
     const planId = req.params.id;
     
@@ -262,6 +266,7 @@ router.get('/plans/:id/trustee-shares', async (req, res) => {
  */
 router.put('/plans/:id', async (req, res) => {
   try {
+    console.log('=== INHERITANCE ROUTE: Updating plan ===');
     const userId = (req as any).user.id;
     const planId = req.params.id;
     const request = req.body;
