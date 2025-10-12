@@ -21,6 +21,28 @@ import {
  */
 export class CryptoService {
   private vmk: VaultMasterKey | null = null;
+  private restorationAttempted: boolean = false;
+
+  constructor() {
+    // Try to restore VMK from localStorage on service creation
+    this.tryRestoreVMK();
+  }
+
+  /**
+   * Try to restore VMK from localStorage
+   */
+  private tryRestoreVMK(): void {
+    if (this.restorationAttempted) return;
+    this.restorationAttempted = true;
+
+    const isInitialized = localStorage.getItem('vmkInitialized') === 'true';
+    const saltString = localStorage.getItem('vmkSalt');
+    
+    if (isInitialized && saltString) {
+      console.log('CryptoService: VMK restoration data found in localStorage');
+      // VMK will be restored when user provides passphrase
+    }
+  }
 
   /**
    * Initialize VMK from passphrase
@@ -28,6 +50,16 @@ export class CryptoService {
   async initializeVMK(passphrase: string, salt?: Uint8Array): Promise<boolean> {
     try {
       this.vmk = await deriveVaultMasterKey(passphrase, salt);
+      
+      // Store VMK initialization flag
+      localStorage.setItem('vmkInitialized', 'true');
+      
+      // Store the salt for restoration
+      if (this.vmk.salt) {
+        const saltString = Array.from(this.vmk.salt).join(',');
+        localStorage.setItem('vmkSalt', saltString);
+      }
+      
       return true;
     } catch (error) {
       console.error('Failed to initialize VMK:', error);
@@ -50,13 +82,25 @@ export class CryptoService {
   }
 
   /**
-   * Clear VMK from memory
+   * Get current VMK (for inheritance sharing)
+   */
+  getCurrentVMK(): VaultMasterKey | null {
+    return this.vmk;
+  }
+
+  /**
+   * Clear VMK from memory and localStorage
    */
   clearVMK(): void {
     if (this.vmk?.rawKey) {
       clearSensitiveData(this.vmk.rawKey);
     }
     this.vmk = null;
+    
+    // Clear localStorage
+    localStorage.removeItem('vmkInitialized');
+    localStorage.removeItem('vmkSalt');
+    localStorage.removeItem('vmkProof');
   }
 
   /**

@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { vaultApiService } from '../services/vaultApi';
+import { inheritanceApiService } from '../services/inheritanceApi';
+import TrusteeApprovalsSection from '../components/TrusteeApprovalsSection';
 import { 
   DocumentTextIcon, 
   UserGroupIcon, 
@@ -16,16 +18,51 @@ const DashboardPage: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [stats, setStats] = useState<{ totalFiles: number; encryptedFiles: number; totalBytes: number }>({ totalFiles: 0, encryptedFiles: 0, totalBytes: 0 });
+  const [beneficiaryCount, setBeneficiaryCount] = useState(0);
+  const [recentActivityCount, setRecentActivityCount] = useState(0);
 
   useEffect(() => {
     (async () => {
       try {
-        const res = await vaultApiService.getStats();
-        if (res.success) {
-          setStats({ totalFiles: res.totalFiles, encryptedFiles: res.encryptedFiles, totalBytes: res.totalBytes });
+        console.log('Loading dashboard stats...');
+        
+        // Load vault stats
+        const vaultRes = await vaultApiService.getStats();
+        console.log('Vault stats response:', vaultRes);
+        if (vaultRes.success) {
+          setStats({ totalFiles: vaultRes.totalFiles, encryptedFiles: vaultRes.encryptedFiles, totalBytes: vaultRes.totalBytes });
         }
+
+        // Load inheritance plans to count beneficiaries
+        const plansRes = await inheritanceApiService.listPlans();
+        console.log('Inheritance plans response:', plansRes);
+        
+        let totalBeneficiaries = 0;
+        let totalPlans = 0;
+        
+        if (plansRes.success && plansRes.plans) {
+          totalPlans = plansRes.plans.length;
+          // Count total beneficiaries across all plans
+          for (const plan of plansRes.plans) {
+            const statusRes = await inheritanceApiService.getPlanStatus(plan.id);
+            console.log(`Plan ${plan.id} status:`, statusRes);
+            if (statusRes.success && statusRes.data) {
+              totalBeneficiaries += statusRes.data.beneficiaries.length;
+            }
+          }
+        }
+        
+        setBeneficiaryCount(totalBeneficiaries);
+        console.log('Total beneficiaries:', totalBeneficiaries);
+
+        // Calculate recent activity count
+        const vaultFiles = vaultRes.success ? vaultRes.totalFiles : 0;
+        const activityCount = vaultFiles + totalPlans;
+        setRecentActivityCount(activityCount);
+        console.log('Recent activity count:', activityCount);
+        
       } catch (e) {
-        console.warn('Failed to load stats', e);
+        console.error('Failed to load dashboard stats', e);
       }
     })();
   }, []);
@@ -98,7 +135,7 @@ const DashboardPage: React.FC = () => {
                     </div>
                     <div className="ml-4 flex-1">
                       <p className="text-sm font-medium text-gray-500">Beneficiaries</p>
-                      <p className="text-2xl font-bold text-gray-900">0</p>
+                      <p className="text-2xl font-bold text-gray-900">{beneficiaryCount}</p>
                     </div>
                   </div>
                 </div>
@@ -132,7 +169,7 @@ const DashboardPage: React.FC = () => {
                     </div>
                     <div className="ml-4 flex-1">
                       <p className="text-sm font-medium text-gray-500">Recent Activity</p>
-                      <p className="text-2xl font-bold text-gray-900">0</p>
+                      <p className="text-2xl font-bold text-gray-900">{recentActivityCount}</p>
                     </div>
                   </div>
                 </div>
@@ -210,6 +247,11 @@ const DashboardPage: React.FC = () => {
                 </div>
               </button>
             </div>
+          </section>
+
+          {/* Trustee Approvals Section */}
+          <section>
+            <TrusteeApprovalsSection />
           </section>
 
           {/* Recent Activity Section */}

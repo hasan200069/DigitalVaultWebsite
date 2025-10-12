@@ -6,6 +6,7 @@ import dotenv from 'dotenv';
 import { authRoutes } from './auth-service';
 import { tenantRoutes } from './tenant-service';
 import { vaultRoutes } from './vault-service';
+import { inheritanceRouter } from './inheritance-service';
 
 // Load environment variables
 dotenv.config();
@@ -40,6 +41,9 @@ app.use('/tenants', tenantRoutes);
 
 // Vault routes
 app.use('/vault', vaultRoutes);
+
+// Inheritance routes
+app.use('/inheritance', inheritanceRouter);
 
 // Error handling middleware
 app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {

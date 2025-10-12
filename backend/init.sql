@@ -149,6 +149,72 @@ VALUES (
     '{"logo": "", "primaryColor": "#3B82F6", "secondaryColor": "#1E40AF", "companyName": "Digital Vault"}'
 ) ON CONFLICT (domain) DO NOTHING;
 
+-- Create inheritance_plans table
+CREATE TABLE IF NOT EXISTS inheritance_plans (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    owner_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    k_threshold INTEGER NOT NULL CHECK (k_threshold >= 2),
+    n_total INTEGER NOT NULL CHECK (n_total >= k_threshold),
+    waiting_period_days INTEGER NOT NULL CHECK (waiting_period_days >= 1),
+    status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'ready', 'triggered', 'completed', 'cancelled')),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    triggered_at TIMESTAMP WITH TIME ZONE,
+    completed_at TIMESTAMP WITH TIME ZONE
+);
+
+-- Create inheritance_trustees table
+CREATE TABLE IF NOT EXISTS inheritance_trustees (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    plan_id UUID NOT NULL REFERENCES inheritance_plans(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    email VARCHAR(255) NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    share_index INTEGER NOT NULL CHECK (share_index >= 1),
+    encrypted_share TEXT NOT NULL,
+    has_approved BOOLEAN DEFAULT false,
+    approved_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(plan_id, share_index),
+    UNIQUE(plan_id, email)
+);
+
+-- Create inheritance_beneficiaries table
+CREATE TABLE IF NOT EXISTS inheritance_beneficiaries (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    plan_id UUID NOT NULL REFERENCES inheritance_plans(id) ON DELETE CASCADE,
+    email VARCHAR(255) NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    relationship VARCHAR(100) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(plan_id, email)
+);
+
+-- Create inheritance_items table
+CREATE TABLE IF NOT EXISTS inheritance_items (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    plan_id UUID NOT NULL REFERENCES inheritance_plans(id) ON DELETE CASCADE,
+    vault_item_id UUID NOT NULL REFERENCES vault_items(id) ON DELETE CASCADE,
+    item_name VARCHAR(255) NOT NULL,
+    item_type VARCHAR(100) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(plan_id, vault_item_id)
+);
+
+-- Create indexes for inheritance tables
+CREATE INDEX IF NOT EXISTS idx_inheritance_plans_owner_id ON inheritance_plans(owner_id);
+CREATE INDEX IF NOT EXISTS idx_inheritance_plans_status ON inheritance_plans(status);
+CREATE INDEX IF NOT EXISTS idx_inheritance_plans_created_at ON inheritance_plans(created_at);
+CREATE INDEX IF NOT EXISTS idx_inheritance_trustees_plan_id ON inheritance_trustees(plan_id);
+CREATE INDEX IF NOT EXISTS idx_inheritance_trustees_user_id ON inheritance_trustees(user_id);
+CREATE INDEX IF NOT EXISTS idx_inheritance_trustees_email ON inheritance_trustees(email);
+CREATE INDEX IF NOT EXISTS idx_inheritance_beneficiaries_plan_id ON inheritance_beneficiaries(plan_id);
+CREATE INDEX IF NOT EXISTS idx_inheritance_beneficiaries_email ON inheritance_beneficiaries(email);
+CREATE INDEX IF NOT EXISTS idx_inheritance_items_plan_id ON inheritance_items(plan_id);
+CREATE INDEX IF NOT EXISTS idx_inheritance_items_vault_item_id ON inheritance_items(vault_item_id);
+
 -- Insert a default admin user (password: admin123)
 INSERT INTO users (tenant_id, email, password_hash, first_name, last_name, is_admin) 
 SELECT 

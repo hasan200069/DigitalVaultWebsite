@@ -26,6 +26,7 @@ export interface UseCryptoActions {
   };
   calculateFileChecksum: (file: File) => Promise<string>;
   getVMKSalt: () => Uint8Array | null;
+  getCurrentVMK: () => VaultMasterKey | null;
   getEncryptionInfo: () => {
     algorithm: string;
     keySize: number;
@@ -56,7 +57,19 @@ export const useCrypto = (): UseCryptoState & UseCryptoActions => {
       if (localStorageInitialized && !serviceInitialized) {
         console.log('VMK state mismatch detected - localStorage has flag but service is not initialized');
         console.log('This means VMK needs to be restored with passphrase');
-        setIsVMKInitialized(false);
+        
+        // Try to restore VMK if we have the salt stored
+        const saltString = localStorage.getItem('vmkSalt');
+        if (saltString) {
+          console.log('VMK salt found in localStorage, but passphrase needed for restoration');
+          // We have the salt but need the passphrase to restore
+          // Set state to false so user can re-enter passphrase
+          setIsVMKInitialized(false);
+        } else {
+          console.log('No VMK salt found, clearing localStorage flag');
+          localStorage.removeItem('vmkInitialized');
+          setIsVMKInitialized(false);
+        }
         return;
       }
       
@@ -97,17 +110,7 @@ export const useCrypto = (): UseCryptoState & UseCryptoActions => {
       console.log('VMK initialization result:', success);
       setIsVMKInitialized(success);
       if (success) {
-        localStorage.setItem('vmkInitialized', 'true');
-        // Store the VMK salt for restoration
-        const salt = cryptoService.getVMKSalt();
-        console.log('Initialize VMK - Retrieved salt:', salt);
-        if (salt) {
-          const saltString = Array.from(salt).join(',');
-          localStorage.setItem('vmkSalt', saltString);
-          console.log('Initialize VMK - Stored salt in localStorage:', saltString);
-        } else {
-          console.log('Initialize VMK - No salt retrieved from cryptoService');
-        }
+        // cryptoService now handles localStorage automatically
         // Create a validation proof bound to this VMK so restores can be verified
         try {
           const proofPlain = new TextEncoder().encode('vmk-proof-v1');
@@ -133,10 +136,8 @@ export const useCrypto = (): UseCryptoState & UseCryptoActions => {
   }, []);
 
   const clearVMK = useCallback(() => {
-    cryptoService.clearVMK();
+    cryptoService.clearVMK(); // This now handles localStorage cleanup
     setIsVMKInitialized(false);
-    localStorage.removeItem('vmkInitialized');
-    localStorage.removeItem('vmkSalt');
     setError(null);
     // Dispatch event to notify other components
     window.dispatchEvent(new CustomEvent('vmkStateChanged'));
@@ -428,6 +429,10 @@ export const useCrypto = (): UseCryptoState & UseCryptoActions => {
     return cryptoService.getVMKSalt();
   }, []);
 
+  const getCurrentVMK = useCallback(() => {
+    return cryptoService.getCurrentVMK();
+  }, []);
+
   const getEncryptionInfo = useCallback(() => {
     return {
       algorithm: 'AES-GCM',
@@ -455,6 +460,7 @@ export const useCrypto = (): UseCryptoState & UseCryptoActions => {
     validatePassphrase,
     calculateFileChecksum,
     getVMKSalt,
+    getCurrentVMK,
     getEncryptionInfo
   };
 };
