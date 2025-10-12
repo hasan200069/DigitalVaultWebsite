@@ -257,7 +257,17 @@ class VaultApiService {
   // Download file from URL
   async downloadFile(downloadUrl: string): Promise<ArrayBuffer> {
     try {
-      const response = await fetch(downloadUrl);
+      const token = localStorage.getItem('accessToken');
+      
+      if (!token) {
+        throw new Error('Authentication required');
+      }
+
+      const response = await fetch(downloadUrl, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
       
       if (!response.ok) {
         throw new Error(`Download failed: ${response.status} ${response.statusText}`);

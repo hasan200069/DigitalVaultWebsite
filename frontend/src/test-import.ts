@@ -1,4 +1,8 @@
 // Test file to verify imports work
-import { VaultMasterKey } from './utils/cryptoTypes';
+import * as SearchAPI from './services/searchApi';
 
-console.log('Import test successful:', VaultMasterKey);
+console.log('SearchAPI:', SearchAPI);
+console.log('SearchFilters type:', typeof SearchAPI.SearchFilters);
+console.log('searchApiService:', SearchAPI.searchApiService);
+
+export default SearchAPI;

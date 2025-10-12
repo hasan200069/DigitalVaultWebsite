@@ -3,10 +3,13 @@ import {
   createItem, 
   getItem, 
   createVersion, 
-  getDownloadUrl, 
+  getDownloadUrl,
+  downloadFile,
   listItems,
   deleteItem,
-  getStats
+  getStats,
+  searchItems,
+  getSecureViewer
 } from './vaultService';
 import { authenticateToken } from '../auth-service/middleware';
 
@@ -22,6 +25,13 @@ router.get('/items/:id', getItem);
 router.delete('/items/:id', deleteItem);
 router.post('/items/:id/versions', createVersion);
 router.get('/items/:id/versions/:version/download', getDownloadUrl);
+router.get('/items/:id/versions/:version/download-file', downloadFile);
 router.get('/stats', getStats);
+
+// Search routes
+router.post('/search', searchItems);
+
+// Secure viewer routes
+router.get('/items/:id/secure-viewer', getSecureViewer);
 
 export { router as vaultRoutes };

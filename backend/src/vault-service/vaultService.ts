@@ -7,7 +7,13 @@ import {
   CreateVersionRequest, 
   CreateVersionResponse,
   VaultItem,
-  VaultItemVersion
+  VaultItemVersion,
+  SearchRequest,
+  SearchResponse,
+  SearchResult,
+  SearchFilters,
+  SecureViewerRequest,
+  SecureViewerResponse
 } from './types';
 import { 
   generatePresignedUploadUrl, 
@@ -375,8 +381,9 @@ export const getDownloadUrl = async (req: Request, res: Response): Promise<void>
 
     const versionData = versionResult.rows[0];
 
-    // Generate presigned download URL
-    const downloadUrl = await generatePresignedDownloadUrl(versionData.file_path);
+    // For development, serve file directly through backend instead of presigned URL
+    // This avoids browser CORS issues with MinIO
+    const downloadUrl = `${req.protocol}://${req.get('host')}/vault/items/${id}/versions/${version}/download-file`;
 
     res.json({
       success: true,
@@ -390,6 +397,79 @@ export const getDownloadUrl = async (req: Request, res: Response): Promise<void>
     res.status(500).json({
       success: false,
       message: 'Internal server error'
+    });
+  }
+};
+
+// Download file directly (for development)
+export const downloadFile = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const userId = (req as any).user?.id;
+    const { id, version } = req.params;
+
+    if (!userId) {
+      res.status(401).json({
+        success: false,
+        message: 'User not authenticated'
+      });
+      return;
+    }
+
+    // Get default tenant
+    const defaultTenant = await query(
+      'SELECT id FROM tenants WHERE domain = $1',
+      ['default']
+    );
+
+    if (defaultTenant.rows.length === 0) {
+      res.status(500).json({
+        success: false,
+        message: 'Default tenant not found'
+      });
+      return;
+    }
+
+    const tenantId = defaultTenant.rows[0].id;
+
+    // Get version with item validation
+    const versionResult = await query(
+      `SELECT viv.*, vi.user_id, vi.tenant_id, vi.name, vi.mime_type
+       FROM vault_item_versions viv
+       JOIN vault_items vi ON viv.item_id = vi.id
+       WHERE viv.item_id = $1 AND viv.version_number = $2 
+       AND vi.user_id = $3 AND vi.tenant_id = $4 AND vi.is_active = true`,
+      [id, version, userId, tenantId]
+    );
+
+    if (versionResult.rows.length === 0) {
+      res.status(404).json({
+        success: false,
+        message: 'File not found'
+      });
+      return;
+    }
+
+    const versionData = versionResult.rows[0];
+
+    // Get file from MinIO
+    const { minioClient } = await import('./minioClient');
+    const bucketName = process.env.MINIO_BUCKET_NAME || 'aegisvault-files';
+    
+    const fileStream = await minioClient.getObject(bucketName, versionData.file_path);
+    
+    // Set headers for file download
+    res.setHeader('Content-Type', versionData.mime_type || 'application/octet-stream');
+    res.setHeader('Content-Disposition', `attachment; filename="${versionData.name}"`);
+    res.setHeader('Cache-Control', 'no-cache');
+
+    // Pipe file stream to response
+    fileStream.pipe(res);
+
+  } catch (error) {
+    console.error('Download file error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to download file'
     });
   }
 };
@@ -570,5 +650,397 @@ export const getStats = async (req: Request, res: Response): Promise<void> => {
   } catch (error) {
     console.error('Get stats error:', error);
     res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+// Search vault items with encrypted metadata
+export const searchItems = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const userId = (req as any).user?.id;
+    const startTime = Date.now();
+
+    if (!userId) {
+      res.status(401).json({
+        success: false,
+        message: 'User not authenticated'
+      } as SearchResponse);
+      return;
+    }
+
+    // Get default tenant
+    const defaultTenant = await query(
+      'SELECT id FROM tenants WHERE domain = $1',
+      ['default']
+    );
+
+    if (defaultTenant.rows.length === 0) {
+      res.status(500).json({
+        success: false,
+        message: 'Default tenant not found'
+      } as SearchResponse);
+      return;
+    }
+
+    const tenantId = defaultTenant.rows[0].id;
+
+    const {
+      query: searchQuery,
+      filters = {},
+      limit = 20,
+      offset = 0,
+      sortBy = 'created_at',
+      sortOrder = 'desc'
+    }: SearchRequest = req.body;
+
+    // Validate search query
+    if (!searchQuery || searchQuery.trim().length === 0) {
+      res.status(400).json({
+        success: false,
+        message: 'Search query is required'
+      } as SearchResponse);
+      return;
+    }
+
+    // Build search query with filters
+    let queryText = `
+      SELECT vi.*, 
+             CASE 
+               WHEN LOWER(vi.name) LIKE LOWER($1) THEN 10
+               WHEN LOWER(vi.description) LIKE LOWER($1) THEN 5
+               WHEN EXISTS (
+                 SELECT 1 FROM unnest(vi.tags) AS tag 
+                 WHERE LOWER(tag) LIKE LOWER($1)
+               ) THEN 7
+               ELSE 1
+             END as relevance_score,
+             CASE 
+               WHEN LOWER(vi.name) LIKE LOWER($1) THEN 'name'
+               WHEN LOWER(vi.description) LIKE LOWER($1) THEN 'description'
+               WHEN EXISTS (
+                 SELECT 1 FROM unnest(vi.tags) AS tag 
+                 WHERE LOWER(tag) LIKE LOWER($1)
+               ) THEN 'tags'
+               ELSE 'other'
+             END as matched_field
+      FROM vault_items vi
+      WHERE vi.user_id = $2 AND vi.tenant_id = $3 AND vi.is_active = true
+        AND (
+          LOWER(vi.name) LIKE LOWER($1) OR
+          LOWER(vi.description) LIKE LOWER($1) OR
+          EXISTS (
+            SELECT 1 FROM unnest(vi.tags) AS tag 
+            WHERE LOWER(tag) LIKE LOWER($1)
+          )
+        )
+    `;
+
+    const queryParams: any[] = [`%${searchQuery.trim()}%`, userId, tenantId];
+    let paramIndex = 4;
+
+    // Add filters
+    if (filters.category) {
+      queryText += ` AND vi.category = $${paramIndex}`;
+      queryParams.push(filters.category);
+      paramIndex++;
+    }
+
+    if (filters.tags && filters.tags.length > 0) {
+      queryText += ` AND vi.tags && $${paramIndex}`;
+      queryParams.push(filters.tags);
+      paramIndex++;
+    }
+
+    if (filters.mimeType) {
+      queryText += ` AND vi.mime_type = $${paramIndex}`;
+      queryParams.push(filters.mimeType);
+      paramIndex++;
+    }
+
+    if (filters.fileExtension) {
+      queryText += ` AND vi.file_extension = $${paramIndex}`;
+      queryParams.push(filters.fileExtension);
+      paramIndex++;
+    }
+
+    if (filters.isEncrypted !== undefined) {
+      queryText += ` AND vi.is_encrypted = $${paramIndex}`;
+      queryParams.push(filters.isEncrypted);
+      paramIndex++;
+    }
+
+    if (filters.dateFrom) {
+      queryText += ` AND vi.created_at >= $${paramIndex}`;
+      queryParams.push(filters.dateFrom);
+      paramIndex++;
+    }
+
+    if (filters.dateTo) {
+      queryText += ` AND vi.created_at <= $${paramIndex}`;
+      queryParams.push(filters.dateTo);
+      paramIndex++;
+    }
+
+    if (filters.minSize !== undefined) {
+      queryText += ` AND vi.file_size >= $${paramIndex}`;
+      queryParams.push(filters.minSize);
+      paramIndex++;
+    }
+
+    if (filters.maxSize !== undefined) {
+      queryText += ` AND vi.file_size <= $${paramIndex}`;
+      queryParams.push(filters.maxSize);
+      paramIndex++;
+    }
+
+    // Add sorting
+    const validSortColumns = ['name', 'created_at', 'updated_at', 'file_size'];
+    const sortColumn = validSortColumns.includes(sortBy) ? sortBy : 'created_at';
+    const order = sortOrder === 'asc' ? 'ASC' : 'DESC';
+    
+    queryText += ` ORDER BY relevance_score DESC, vi.${sortColumn} ${order}`;
+    
+    // Add pagination
+    queryText += ` LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+    queryParams.push(parseInt(limit.toString()), parseInt(offset.toString()));
+
+    const result = await query(queryText, queryParams);
+
+    // Get total count for pagination
+    let countQuery = `
+      SELECT COUNT(*) as total
+      FROM vault_items vi
+      WHERE vi.user_id = $1 AND vi.tenant_id = $2 AND vi.is_active = true
+        AND (
+          LOWER(vi.name) LIKE LOWER($3) OR
+          LOWER(vi.description) LIKE LOWER($3) OR
+          EXISTS (
+            SELECT 1 FROM unnest(vi.tags) AS tag 
+            WHERE LOWER(tag) LIKE LOWER($3)
+          )
+        )
+    `;
+
+    const countParams: any[] = [userId, tenantId, `%${searchQuery.trim()}%`];
+    let countParamIndex = 4;
+
+    // Add same filters to count query
+    if (filters.category) {
+      countQuery += ` AND vi.category = $${countParamIndex}`;
+      countParams.push(filters.category);
+      countParamIndex++;
+    }
+
+    if (filters.tags && filters.tags.length > 0) {
+      countQuery += ` AND vi.tags && $${countParamIndex}`;
+      countParams.push(filters.tags);
+      countParamIndex++;
+    }
+
+    if (filters.mimeType) {
+      countQuery += ` AND vi.mime_type = $${countParamIndex}`;
+      countParams.push(filters.mimeType);
+      countParamIndex++;
+    }
+
+    if (filters.fileExtension) {
+      countQuery += ` AND vi.file_extension = $${countParamIndex}`;
+      countParams.push(filters.fileExtension);
+      countParamIndex++;
+    }
+
+    if (filters.isEncrypted !== undefined) {
+      countQuery += ` AND vi.is_encrypted = $${countParamIndex}`;
+      countParams.push(filters.isEncrypted);
+      countParamIndex++;
+    }
+
+    if (filters.dateFrom) {
+      countQuery += ` AND vi.created_at >= $${countParamIndex}`;
+      countParams.push(filters.dateFrom);
+      countParamIndex++;
+    }
+
+    if (filters.dateTo) {
+      countQuery += ` AND vi.created_at <= $${countParamIndex}`;
+      countParams.push(filters.dateTo);
+      countParamIndex++;
+    }
+
+    if (filters.minSize !== undefined) {
+      countQuery += ` AND vi.file_size >= $${countParamIndex}`;
+      countParams.push(filters.minSize);
+      countParamIndex++;
+    }
+
+    if (filters.maxSize !== undefined) {
+      countQuery += ` AND vi.file_size <= $${countParamIndex}`;
+      countParams.push(filters.maxSize);
+      countParamIndex++;
+    }
+
+    const countResult = await query(countQuery, countParams);
+    const total = parseInt(countResult.rows[0].total, 10);
+
+    // Map results to search results
+    const results: SearchResult[] = result.rows.map(row => ({
+      item: mapItemRow(row),
+      relevanceScore: Math.round((row.relevance_score / 10) * 100), // Convert to percentage
+      matchedFields: [row.matched_field],
+      snippet: generateSnippet(row, searchQuery)
+    }));
+
+    const took = Date.now() - startTime;
+
+    res.json({
+      success: true,
+      message: 'Search completed successfully',
+      results,
+      total,
+      query: searchQuery,
+      filters,
+      took
+    } as SearchResponse);
+
+  } catch (error) {
+    console.error('Search items error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    } as SearchResponse);
+  }
+};
+
+// Helper function to generate search snippet
+const generateSnippet = (row: any, searchQuery: string): string => {
+  const query = searchQuery.toLowerCase();
+  
+  // Check if query matches name
+  if (row.name.toLowerCase().includes(query)) {
+    const index = row.name.toLowerCase().indexOf(query);
+    const start = Math.max(0, index - 20);
+    const end = Math.min(row.name.length, index + query.length + 20);
+    return row.name.substring(start, end);
+  }
+  
+  // Check if query matches description
+  if (row.description && row.description.toLowerCase().includes(query)) {
+    const index = row.description.toLowerCase().indexOf(query);
+    const start = Math.max(0, index - 30);
+    const end = Math.min(row.description.length, index + query.length + 30);
+    return row.description.substring(start, end);
+  }
+  
+  // Check if query matches tags
+  if (row.tags && row.tags.length > 0) {
+    const matchingTag = row.tags.find((tag: string) => 
+      tag.toLowerCase().includes(query)
+    );
+    if (matchingTag) {
+      return `Tag: ${matchingTag}`;
+    }
+  }
+  
+  return row.name;
+};
+
+// Get secure viewer URL for an item
+export const getSecureViewer = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const userId = (req as any).user?.id;
+    const { id } = req.params;
+    const { version } = req.query;
+
+    if (!userId) {
+      res.status(401).json({
+        success: false,
+        message: 'User not authenticated'
+      } as SecureViewerResponse);
+      return;
+    }
+
+    // Get default tenant
+    const defaultTenant = await query(
+      'SELECT id FROM tenants WHERE domain = $1',
+      ['default']
+    );
+
+    if (defaultTenant.rows.length === 0) {
+      res.status(500).json({
+        success: false,
+        message: 'Default tenant not found'
+      } as SecureViewerResponse);
+      return;
+    }
+
+    const tenantId = defaultTenant.rows[0].id;
+
+    // Get item with validation
+    const itemResult = await query(
+      `SELECT * FROM vault_items 
+       WHERE id = $1 AND user_id = $2 AND tenant_id = $3 AND is_active = true`,
+      [id, userId, tenantId]
+    );
+
+    if (itemResult.rows.length === 0) {
+      res.status(404).json({
+        success: false,
+        message: 'Item not found'
+      } as SecureViewerResponse);
+      return;
+    }
+
+    const item = itemResult.rows[0];
+
+    // Get specific version or latest version
+    let versionQuery = `SELECT * FROM vault_item_versions WHERE item_id = $1`;
+    const versionParams: any[] = [id];
+
+    if (version) {
+      versionQuery += ` AND version_number = $2`;
+      versionParams.push(version);
+    } else {
+      versionQuery += ` ORDER BY version_number DESC LIMIT 1`;
+    }
+
+    const versionResult = await query(versionQuery, versionParams);
+
+    if (versionResult.rows.length === 0) {
+      res.status(404).json({
+        success: false,
+        message: 'Version not found'
+      } as SecureViewerResponse);
+      return;
+    }
+
+    const versionData = versionResult.rows[0];
+
+    // Generate secure viewer URL (in a real implementation, this would be a secure endpoint)
+    const viewerToken = crypto.randomBytes(32).toString('hex');
+    const viewerUrl = `/secure-viewer/${id}/${versionData.version_number}?token=${viewerToken}`;
+
+    // In a real implementation, you would:
+    // 1. Store the viewer token in Redis/cache with expiration
+    // 2. Implement a secure viewer endpoint that validates the token
+    // 3. Apply security restrictions (disable copy, save, print, watermark)
+
+    res.json({
+      success: true,
+      message: 'Secure viewer URL generated successfully',
+      viewerUrl,
+      expiresIn: 3600, // 1 hour
+      restrictions: {
+        disableCopy: true,
+        disableSave: true,
+        disablePrint: true,
+        watermarkText: `Confidential - ${item.name}`
+      }
+    } as SecureViewerResponse);
+
+  } catch (error) {
+    console.error('Get secure viewer error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    } as SecureViewerResponse);
   }
 };
