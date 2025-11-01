@@ -175,16 +175,11 @@ export class ShamirService {
           throw new Error(`Private key not found for trustee: ${trusteeEmail}`);
         }
 
-        // Parse encrypted share data
-        const encryptedData = JSON.parse(share.encryptedShare);
-        const decryptedShareData = await TrusteeKeyService.decryptShare(
-          encryptedData,
-          privateKey
-        );
-
+        // For recovery kit restoration, we use the share directly without additional decryption
+        // The share is already in base64 format and ready to use
         return {
           ...share,
-          share: decryptedShareData
+          share: share.share // Use the share directly
         };
       })
     );

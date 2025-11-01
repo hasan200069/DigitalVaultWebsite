@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
   EyeIcon, 
@@ -13,6 +13,8 @@ const RegisterPage: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isWebAuthnLoading, setIsWebAuthnLoading] = useState(false);
+  const [isRecoveryKitLoading, setIsRecoveryKitLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [formData, setFormData] = useState({
@@ -79,14 +81,12 @@ const RegisterPage: React.FC = () => {
     }
   };
 
-  const handleWebAuthnRegister = () => {
-    console.log('WebAuthn registration initiated');
-    // TODO: Implement WebAuthn registration
+  const handleWebAuthnRegister = async () => {
+    alert('WebAuthn / Biometric registration is not available at this time.');
   };
 
-  const handleDownloadRecoveryKit = () => {
-    console.log('Downloading recovery kit');
-    // TODO: Implement recovery kit download
+  const handleDownloadRecoveryKit = async () => {
+    alert('Recovery kit download is not available at this time.');
   };
 
   const isPasswordValid = formData.password.length >= 8;
@@ -317,10 +317,11 @@ const RegisterPage: React.FC = () => {
             <button
               type="button"
               onClick={handleWebAuthnRegister}
-              className="w-full flex justify-center items-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              disabled={isWebAuthnLoading}
+              className="w-full flex justify-center items-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
             >
               <DevicePhoneMobileIcon className="h-5 w-5 mr-2" />
-              WebAuthn / Biometric
+              {isWebAuthnLoading ? 'Registering...' : 'WebAuthn / Biometric'}
             </button>
           </div>
 
@@ -328,10 +329,11 @@ const RegisterPage: React.FC = () => {
             <button
               type="button"
               onClick={handleDownloadRecoveryKit}
-              className="w-full flex justify-center items-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              disabled={isRecoveryKitLoading}
+              className="w-full flex justify-center items-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
             >
               <ArrowDownTrayIcon className="h-5 w-5 mr-2" />
-              Download Recovery Kit
+              {isRecoveryKitLoading ? 'Generating...' : 'Download Recovery Kit'}
             </button>
             <p className="mt-2 text-xs text-gray-500 text-center">
               Download your recovery kit for emergency access

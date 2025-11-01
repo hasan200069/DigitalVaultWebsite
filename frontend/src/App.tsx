@@ -11,6 +11,11 @@ import SearchPage from './pages/SearchPage';
 import AuditPage from './pages/AuditPage';
 import SettingsPage from './pages/SettingsPage';
 import CryptoDemo from './components/CryptoDemo';
+import PackagesPage from './pages/PackagesPage';
+import ContractsPage from './pages/ContractsPage';
+import ESignaturePage from './pages/ESignaturePage';
+import CorporatePage from './pages/CorporatePage';
+import PricingPage from './pages/PricingPage';
 
 // Protected Route Component
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -64,6 +69,10 @@ function App() {
               </PublicRoute>
             } 
           />
+          <Route 
+            path="/pricing" 
+            element={<PricingPage />} 
+          />
           
           {/* Protected routes */}
           <Route 
@@ -80,9 +89,14 @@ function App() {
           >
             <Route index element={<DashboardPage />} />
             <Route path="vault" element={<VaultPage />} />
+            <Route path="packages" element={<PackagesPage />} />
+            <Route path="pricing" element={<PricingPage />} />
             <Route path="inheritance" element={<InheritancePage />} />
+            <Route path="contracts" element={<ContractsPage />} />
             <Route path="search" element={<SearchPage />} />
+            <Route path="esignature" element={<ESignaturePage />} />
             <Route path="audit" element={<AuditPage />} />
+            <Route path="corporate" element={<CorporatePage />} />
             <Route path="settings" element={<SettingsPage />} />
             <Route path="crypto-demo" element={<CryptoDemo />} />
           </Route>

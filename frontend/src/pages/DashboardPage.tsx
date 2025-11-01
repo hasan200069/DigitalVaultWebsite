@@ -366,6 +366,50 @@ const DashboardPage: React.FC = () => {
             </div>
           </section>
 
+          {/* Document Taxonomy Section */}
+          <section>
+            <h2 className="text-xl font-semibold text-gray-900 mb-6">Document Categories</h2>
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+              <p className="text-sm text-gray-600 mb-4">Your vault is organized with the following pre-loaded document categories:</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {[
+                  'Court Documents',
+                  'Wills',
+                  'Real estate documents',
+                  'Title deeds',
+                  'Life Insurance documents',
+                  'Cryptocurrencies and NFTs',
+                  'Car Documents',
+                  'Private sensitive documents',
+                  'Business documents',
+                  'Digital will',
+                  'Important documents',
+                  'School certificates',
+                  'Financial documents',
+                  'End-of-life planning',
+                  'Marriage certificates',
+                  'Church/Mosque documents'
+                ].map((category) => (
+                  <div key={category} className="flex items-center space-x-2 text-sm text-gray-700">
+                    <svg className="h-5 w-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                    <span>{category}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-6 flex justify-center">
+                <button
+                  onClick={() => navigate('/dashboard/vault')}
+                  className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-lg shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
+                >
+                  <MagnifyingGlassIcon className="h-5 w-5 mr-2" />
+                  Explore more categories
+                </button>
+              </div>
+            </div>
+          </section>
+
           {/* Trustee Approvals Section */}
           <section>
             <TrusteeApprovalsSection />

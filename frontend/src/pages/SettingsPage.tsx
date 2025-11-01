@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   UserIcon, 
   ShieldCheckIcon, 
@@ -6,14 +6,19 @@ import {
   GlobeAltIcon,
   KeyIcon,
   DevicePhoneMobileIcon,
+  ArrowDownTrayIcon,
 } from '@heroicons/react/24/outline';
+import { useAuth } from '../contexts/AuthContext';
 
 const SettingsPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState('account');
+  const [isRecoveryKitLoading, setIsRecoveryKitLoading] = useState(false);
+  const { user } = useAuth();
+  
   const [formData, setFormData] = useState({
-    email: 'john.doe@acme.com',
-    fullName: 'John Doe',
-    company: 'ACME Corporation',
+    email: '',
+    fullName: '',
+    company: 'Fortva',
     timezone: 'UTC-8',
     language: 'en',
     notifications: {
@@ -23,6 +28,17 @@ const SettingsPage: React.FC = () => {
       updates: true,
     },
   });
+
+  // Update form data when user loads
+  useEffect(() => {
+    if (user) {
+      setFormData(prev => ({
+        ...prev,
+        email: user.email || '',
+        fullName: `${user.firstName} ${user.lastName}`,
+      }));
+    }
+  }, [user]);
 
   const tabs = [
     { id: 'account', label: 'Account', icon: UserIcon },
@@ -66,10 +82,29 @@ const SettingsPage: React.FC = () => {
     alert('Change password dialog would open here');
   };
 
+  const loadDevices = async () => {
+    setIsLoadingDevices(true);
+    setDeviceError('');
+    try {
+      const result = await WebAuthnService.getDevices();
+      if (result.success && result.devices) {
+        setDevices(result.devices);
+      } else {
+        setDeviceError(result.message || 'Failed to load devices');
+      }
+    } catch (error) {
+      setDeviceError('Failed to load devices');
+    } finally {
+      setIsLoadingDevices(false);
+    }
+  };
+
   const handleManageDevices = () => {
-    console.log('Manage devices clicked');
-    // In a real app, this would open trusted devices management
-    alert('Trusted devices management would open here');
+    alert('Device management is not available at this time.');
+  };
+
+  const handleDownloadRecoveryKit = async () => {
+    alert('Recovery kit download is not available at this time.');
   };
 
   const renderAccountSettings = () => (
@@ -166,6 +201,25 @@ const SettingsPage: React.FC = () => {
               className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
             >
               Manage Devices
+            </button>
+          </div>
+
+          <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border-2 border-orange-200">
+            <div className="flex items-center">
+              <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center mr-4">
+                <ArrowDownTrayIcon className="w-5 h-5 text-orange-600" />
+              </div>
+              <div>
+                <h4 className="text-sm font-medium text-gray-900">Recovery Kit</h4>
+                <p className="text-sm text-gray-500">Download emergency access recovery kit for your vault</p>
+              </div>
+            </div>
+            <button 
+              onClick={handleDownloadRecoveryKit}
+              disabled={isRecoveryKitLoading}
+              className="inline-flex items-center px-4 py-2 border border-orange-300 text-sm font-medium rounded-lg text-orange-700 bg-white hover:bg-orange-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+            >
+              {isRecoveryKitLoading ? 'Downloading...' : 'Download Kit'}
             </button>
           </div>
         </div>
@@ -309,6 +363,7 @@ const SettingsPage: React.FC = () => {
           </div>
         </div>
       </div>
+
     </div>
   );
 };

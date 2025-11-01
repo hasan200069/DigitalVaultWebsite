@@ -90,9 +90,44 @@ const TrusteeApprovalsSection: React.FC = () => {
           <div className="text-center py-8">
             <ShieldCheckIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
             <h3 className="text-sm font-medium text-gray-900 mb-2">No trustee responsibilities</h3>
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-gray-500 mb-6">
               You are not currently designated as a trustee for any inheritance plans.
             </p>
+            
+            {/* Document Categories Preview */}
+            <div className="mt-8 pt-6 border-t border-gray-200">
+              <p className="text-xs font-medium text-gray-700 mb-3 text-left">Document Organization by Category:</p>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-left">
+                <div>
+                  <p className="text-xs font-semibold text-gray-800 mb-2">Real estate:</p>
+                  <ul className="text-xs text-gray-600 space-y-1">
+                    <li>• Mortgage</li>
+                    <li>• Contract management</li>
+                    <li>• Legal Documents</li>
+                    <li>• Accounting</li>
+                    <li>• Family</li>
+                  </ul>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-gray-800 mb-2">Insurance:</p>
+                  <ul className="text-xs text-gray-600 space-y-1">
+                    <li>• Taxes</li>
+                    <li>• Budget (dropdown)</li>
+                    <li>• Savings and cheques</li>
+                  </ul>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-gray-800 mb-2">Automobile:</p>
+                  <ul className="text-xs text-gray-600 space-y-1">
+                    <li>• Company Documents</li>
+                    <li>• Utilities</li>
+                    <li>• Religious</li>
+                    <li>• Education</li>
+                    <li>• Digital Will</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>

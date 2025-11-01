@@ -125,6 +125,23 @@ export const getFileMetadata = async (filePath: string) => {
   }
 };
 
+// Download file from MinIO
+export const downloadFileFromMinIO = async (filePath: string): Promise<Buffer> => {
+  try {
+    const stream = await minioClient.getObject(minioConfig.bucketName, filePath);
+    const chunks: Buffer[] = [];
+    
+    return new Promise((resolve, reject) => {
+      stream.on('data', (chunk) => chunks.push(chunk));
+      stream.on('end', () => resolve(Buffer.concat(chunks)));
+      stream.on('error', (error) => reject(error));
+    });
+  } catch (error) {
+    console.error('Error downloading file from MinIO:', error);
+    throw new Error('Failed to download file');
+  }
+};
+
 // Generate file checksum
 export const generateChecksum = (data: Buffer): string => {
   return crypto.createHash('sha256').update(data).digest('hex');

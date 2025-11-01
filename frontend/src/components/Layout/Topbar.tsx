@@ -45,9 +45,13 @@ const Topbar: React.FC<TopbarProps> = ({ onMenuClick }) => {
   const getCurrentPageName = () => {
     const path = location.pathname;
     if (path.includes('/vault')) return 'Vault';
+    if (path.includes('/packages')) return 'Packages';
     if (path.includes('/inheritance')) return 'Inheritance';
+    if (path.includes('/contracts')) return 'Contract management';
     if (path.includes('/search')) return 'Search';
+    if (path.includes('/esignature')) return 'E-signature';
     if (path.includes('/audit')) return 'Audit';
+    if (path.includes('/corporate')) return 'Corporate Vault';
     if (path.includes('/settings')) return 'Settings';
     return 'Dashboard';
   };

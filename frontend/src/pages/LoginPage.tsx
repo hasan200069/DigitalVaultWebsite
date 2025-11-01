@@ -1,16 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
   EyeIcon, 
   EyeSlashIcon,
-  DevicePhoneMobileIcon,
-  ArrowDownTrayIcon
+  DevicePhoneMobileIcon
 } from '@heroicons/react/24/outline';
 import { useAuth } from '../contexts/AuthContext';
 
 const LoginPage: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isWebAuthnLoading, setIsWebAuthnLoading] = useState(false);
   const [error, setError] = useState('');
   const [formData, setFormData] = useState({
     email: '',
@@ -47,15 +47,10 @@ const LoginPage: React.FC = () => {
     }
   };
 
-  const handleWebAuthnLogin = () => {
-    console.log('WebAuthn login initiated');
-    // TODO: Implement WebAuthn login
+  const handleWebAuthnLogin = async () => {
+    alert('WebAuthn / Biometric login is not available at this time.');
   };
 
-  const handleDownloadRecoveryKit = () => {
-    console.log('Downloading recovery kit');
-    // TODO: Implement recovery kit download
-  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
@@ -175,25 +170,12 @@ const LoginPage: React.FC = () => {
             <button
               type="button"
               onClick={handleWebAuthnLogin}
-              className="w-full flex justify-center items-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              disabled={isWebAuthnLoading}
+              className="w-full flex justify-center items-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
             >
               <DevicePhoneMobileIcon className="h-5 w-5 mr-2" />
-              WebAuthn / Biometric
+              {isWebAuthnLoading ? 'Authenticating...' : 'WebAuthn / Biometric'}
             </button>
-          </div>
-
-          <div className="mt-6 pt-6 border-t border-gray-200">
-            <button
-              type="button"
-              onClick={handleDownloadRecoveryKit}
-              className="w-full flex justify-center items-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-            >
-              <ArrowDownTrayIcon className="h-5 w-5 mr-2" />
-              Download Recovery Kit
-            </button>
-            <p className="mt-2 text-xs text-gray-500 text-center">
-              Download your recovery kit for emergency access
-            </p>
           </div>
         </form>
       </div>

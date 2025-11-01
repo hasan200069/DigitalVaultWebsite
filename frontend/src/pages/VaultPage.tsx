@@ -6,7 +6,11 @@ import {
   ViewColumnsIcon,
   ArrowDownTrayIcon,
   TrashIcon,
-  ShieldCheckIcon
+  ShieldCheckIcon,
+  FolderIcon,
+  ChevronDownIcon,
+  ChevronRightIcon,
+  EllipsisVerticalIcon
 } from '@heroicons/react/24/outline';
 import UploadModal from '../components/UploadModal';
 import SecureReveal from '../components/SecureReveal';
@@ -27,6 +31,7 @@ const VaultPage: React.FC = () => {
   const [showVMKPrompt, setShowVMKPrompt] = useState(false);
   const [vmkPassphrase, setVmkPassphrase] = useState('');
   const [vmkRestored, setVmkRestored] = useState(false);
+  const [selectedFolderView, setSelectedFolderView] = useState<string | null>(null);
   const [stats, setStats] = useState({
     totalFiles: 0,
     totalSize: 0,
@@ -34,6 +39,30 @@ const VaultPage: React.FC = () => {
   });
 
   const { isVMKInitialized, downloadAndDecryptFile, isDecrypting, restoreVMK } = useCrypto();
+
+  // Document Categories as per dashboard - these act as folders
+  const documentCategories = [
+    'Court Documents',
+    'Wills',
+    'Real estate documents',
+    'Title deeds',
+    'Life Insurance documents',
+    'Cryptocurrencies and NFTs',
+    'Car Documents',
+    'Private sensitive documents',
+    'Business documents',
+    'Digital will',
+    'Important documents',
+    'School certificates',
+    'Financial documents',
+    'End-of-life planning',
+    'Marriage certificates',
+    'Church/Mosque documents'
+  ];
+
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
+  const [selectedFolder, setSelectedFolder] = useState<string>('');
+  const [folderViewMode, setFolderViewMode] = useState<'folders' | 'flat'>('folders');
 
   const categories = [
     { value: '', label: 'All Categories' },
@@ -388,11 +417,69 @@ const VaultPage: React.FC = () => {
     }
   };
 
+  // Toggle folder expansion
+  const toggleFolder = (folderName: string) => {
+    setExpandedFolders(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(folderName)) {
+        newSet.delete(folderName);
+      } else {
+        newSet.add(folderName);
+      }
+      return newSet;
+    });
+  };
+
+  // Open folder view in modal/grid
+  const openFolderView = (folderName: string) => {
+    setSelectedFolderView(folderName);
+  };
+
+  // Close folder view
+  const closeFolderView = () => {
+    setSelectedFolderView(null);
+  };
+
+  // Group items by category/folder
+  const itemsByFolder = documentCategories.reduce((acc, category) => {
+    acc[category] = items.filter(item => 
+      item.category?.toLowerCase() === category.toLowerCase()
+    );
+    return acc;
+  }, {} as Record<string, VaultItem[]>);
+
+  // Get items not in any category
+  const uncategorizedItems = items.filter(item => 
+    !documentCategories.some(cat => item.category?.toLowerCase() === cat.toLowerCase())
+  );
+
+  // Filter items based on search, folder selection, and category
   const filteredItems = items.filter(item =>
     item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     (item.description && item.description.toLowerCase().includes(searchQuery.toLowerCase())) ||
     (item.tags && item.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase())))
-  );
+  ).filter(item => {
+    // Filter by selected folder if any
+    if (selectedFolder) {
+      return item.category?.toLowerCase() === selectedFolder.toLowerCase();
+    }
+    return true;
+  }).filter(item => {
+    // Filter by category dropdown if any
+    if (selectedCategory) {
+      // Map category values to folder names
+      const categoryMap: Record<string, string> = {
+        'documents': 'Documents',
+        'images': 'Images',
+        'videos': 'Videos',
+        'audio': 'Audio',
+        'archives': 'Archives',
+        'other': 'Other'
+      };
+      return item.category?.toLowerCase().includes(selectedCategory);
+    }
+    return true;
+  });
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -464,17 +551,85 @@ const VaultPage: React.FC = () => {
                     </option>
                   ))}
                 </select>
-                <button 
-                  onClick={handleViewToggle}
-                  className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
-                >
-                  <ViewColumnsIcon className="h-4 w-4 mr-2" />
-                  {viewMode === 'grid' ? 'List' : 'Grid'}
-                </button>
+                <div className="flex gap-2">
+                  <button 
+                    onClick={() => setFolderViewMode(prev => prev === 'folders' ? 'flat' : 'folders')}
+                    className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
+                  >
+                    <FolderIcon className="h-4 w-4 mr-2" />
+                    {folderViewMode === 'folders' ? 'Flat' : 'Folders'}
+                  </button>
+                  <button 
+                    onClick={handleViewToggle}
+                    className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
+                  >
+                    <ViewColumnsIcon className="h-4 w-4 mr-2" />
+                    {viewMode === 'grid' ? 'List' : 'Grid'}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
         </div>
+
+        {/* Quick Stats - Shown FIRST when in folder mode */}
+        {folderViewMode === 'folders' && !isLoading && !error && (
+          <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
+              <div className="p-6">
+                <div className="flex items-center">
+                  <div className="flex-shrink-0">
+                    <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                      <DocumentTextIcon className="w-6 h-6 text-blue-600" />
+                    </div>
+                  </div>
+                  <div className="ml-4">
+                    <p className="text-sm font-medium text-gray-500">Total Files</p>
+                    <p className="text-3xl font-bold text-gray-900">{stats.totalFiles}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
+              <div className="p-6">
+                <div className="flex items-center">
+                  <div className="flex-shrink-0">
+                    <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                      <ShieldCheckIcon className="w-6 h-6 text-green-600" />
+                    </div>
+                  </div>
+                  <div className="ml-4">
+                    <p className="text-sm font-medium text-gray-500">Encrypted Files</p>
+                    <p className="text-3xl font-bold text-gray-900">
+                      {items.filter(item => item.isEncrypted).length}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
+              <div className="p-6">
+                <div className="flex items-center">
+                  <div className="flex-shrink-0">
+                    <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
+                      <svg className="w-6 h-6 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4" />
+                      </svg>
+                    </div>
+                  </div>
+                  <div className="ml-4">
+                    <p className="text-sm font-medium text-gray-500">Storage Used</p>
+                    <p className="text-3xl font-bold text-gray-900">
+                      {vaultApiService.formatFileSize(stats.totalSize)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* File Grid/List Area */}
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
@@ -529,6 +684,95 @@ const VaultPage: React.FC = () => {
                   Upload Files
                 </button>
               )}
+            </div>
+          ) : folderViewMode === 'folders' ? (
+            <div className="p-6">
+              {/* Grid Layout for Folders - 3 per row */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {documentCategories.map((category) => {
+                  const folderItems = itemsByFolder[category];
+                  const itemCount = folderItems.length;
+                  const totalSize = folderItems.reduce((sum, item) => sum + (item.fileSize || 0), 0);
+                  
+                  return (
+                    <div 
+                      key={category} 
+                      className="bg-gray-50 border border-gray-200 rounded-xl p-6 hover:shadow-lg transition-shadow cursor-pointer relative group"
+                      onClick={() => openFolderView(category)}
+                    >
+                      {/* Folder Icon - Yellow */}
+                      <div className="flex items-center justify-between mb-4">
+                        <FolderIcon className="h-12 w-12 text-yellow-500" />
+                        <button
+                          className="p-2 text-gray-400 hover:text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            // Handle folder menu
+                          }}
+                        >
+                          <EllipsisVerticalIcon className="h-5 w-5" />
+                        </button>
+                      </div>
+                      
+                      {/* Folder Name */}
+                      <h3 className="text-base font-semibold text-gray-900 mb-2 line-clamp-2">
+                        {category}
+                      </h3>
+                      
+                      {/* Folder Info */}
+                      <div className="space-y-1">
+                        <p className="text-sm text-gray-500">
+                          {itemCount} {itemCount === 1 ? 'item' : 'items'}
+                        </p>
+                        {totalSize > 0 && (
+                          <p className="text-sm text-gray-500">
+                            {vaultApiService.formatFileSize(totalSize)}
+                          </p>
+                        )}
+                        <p className="text-xs text-gray-400">
+                          {formatDate(new Date().toISOString())}
+                        </p>
+                      </div>
+                      
+                      {/* Folder Content Modal when clicked - Show items in modal/popup */}
+                    </div>
+                  );
+                })}
+                
+                {/* Uncategorized items card */}
+                {uncategorizedItems.length > 0 && (
+                  <div 
+                    className="bg-gray-50 border border-gray-200 rounded-xl p-6 hover:shadow-lg transition-shadow cursor-pointer relative group"
+                    onClick={() => openFolderView('Uncategorized')}
+                  >
+                    <div className="flex items-center justify-between mb-4">
+                      <FolderIcon className="h-12 w-12 text-gray-600" />
+                      <button
+                        className="p-2 text-gray-400 hover:text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          // Handle folder menu
+                        }}
+                      >
+                        <EllipsisVerticalIcon className="h-5 w-5" />
+                      </button>
+                    </div>
+                    
+                    <h3 className="text-base font-semibold text-gray-900 mb-2">
+                      Uncategorized
+                    </h3>
+                    
+                    <div className="space-y-1">
+                      <p className="text-sm text-gray-500">
+                        {uncategorizedItems.length} {uncategorizedItems.length === 1 ? 'item' : 'items'}
+                      </p>
+                      <p className="text-xs text-gray-400">
+                        {formatDate(new Date().toISOString())}
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           ) : viewMode === 'grid' ? (
             <div className="p-6">
@@ -692,63 +936,6 @@ const VaultPage: React.FC = () => {
             </div>
           )}
         </div>
-
-        {/* Quick Stats */}
-        <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-3">
-          <div className="bg-white overflow-hidden shadow-sm rounded-xl border border-gray-200">
-            <div className="p-6">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                    <DocumentTextIcon className="w-5 h-5 text-blue-600" />
-                  </div>
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-500">Total Files</p>
-                  <p className="text-2xl font-bold text-gray-900">{stats.totalFiles}</p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white overflow-hidden shadow-sm rounded-xl border border-gray-200">
-            <div className="p-6">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                    <ShieldCheckIcon className="w-5 h-5 text-green-600" />
-                  </div>
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-500">Encrypted Files</p>
-                  <p className="text-2xl font-bold text-gray-900">
-                    {items.filter(item => item.isEncrypted).length}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white overflow-hidden shadow-sm rounded-xl border border-gray-200">
-            <div className="p-6">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <div className="w-10 h-10 bg-yellow-100 rounded-lg flex items-center justify-center">
-                    <svg className="w-5 h-5 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4" />
-                    </svg>
-                  </div>
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-500">Storage Used</p>
-                  <p className="text-2xl font-bold text-gray-900">
-                    {vaultApiService.formatFileSize(stats.totalSize)}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
 
       {/* Upload Modal */}
@@ -765,6 +952,92 @@ const VaultPage: React.FC = () => {
           isOpen={!!previewFile}
           onClose={() => setPreviewFile(null)}
         />
+      )}
+
+      {/* Folder View Modal */}
+      {selectedFolderView && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] flex flex-col">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <div className="flex items-center space-x-3">
+                <FolderIcon className="h-8 w-8 text-yellow-500" />
+                <h2 className="text-2xl font-bold text-gray-900">{selectedFolderView}</h2>
+              </div>
+              <button
+                onClick={closeFolderView}
+                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="flex-1 overflow-y-auto p-6">
+              {selectedFolderView === 'Uncategorized' ? (
+                uncategorizedItems.length > 0 ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                    {uncategorizedItems.map((item) => (
+                      <div
+                        key={item.id}
+                        className="bg-gray-50 border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer"
+                        onClick={() => {
+                          setPreviewFile(item);
+                          closeFolderView();
+                        }}
+                      >
+                        <div className="flex items-center space-x-2 mb-2">
+                          <span className="text-2xl">{vaultApiService.getFileIcon(item.mimeType || '')}</span>
+                          <div className="flex-1 min-w-0">
+                            <h4 className="text-sm font-medium text-gray-900 truncate">{item.name}</h4>
+                          </div>
+                        </div>
+                        <p className="text-xs text-gray-500 mb-1">{vaultApiService.formatFileSize(item.fileSize || 0)}</p>
+                        <p className="text-xs text-gray-400">{formatDate(item.updatedAt)}</p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-16">
+                    <FolderIcon className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+                    <p className="text-gray-500">This folder is empty</p>
+                  </div>
+                )
+              ) : (
+                itemsByFolder[selectedFolderView] && itemsByFolder[selectedFolderView].length > 0 ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                    {itemsByFolder[selectedFolderView].map((item) => (
+                      <div
+                        key={item.id}
+                        className="bg-gray-50 border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer"
+                        onClick={() => {
+                          setPreviewFile(item);
+                          closeFolderView();
+                        }}
+                      >
+                        <div className="flex items-center space-x-2 mb-2">
+                          <span className="text-2xl">{vaultApiService.getFileIcon(item.mimeType || '')}</span>
+                          <div className="flex-1 min-w-0">
+                            <h4 className="text-sm font-medium text-gray-900 truncate">{item.name}</h4>
+                          </div>
+                        </div>
+                        <p className="text-xs text-gray-500 mb-1">{vaultApiService.formatFileSize(item.fileSize || 0)}</p>
+                        <p className="text-xs text-gray-400">{formatDate(item.updatedAt)}</p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-16">
+                    <FolderIcon className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+                    <p className="text-gray-500">This folder is empty</p>
+                  </div>
+                )
+              )}
+            </div>
+          </div>
+        </div>
       )}
 
       {/* VMK Restoration Modal */}

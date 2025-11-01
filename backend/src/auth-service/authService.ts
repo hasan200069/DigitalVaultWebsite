@@ -30,7 +30,7 @@ import {
 } from './types';
 
 // In-memory store for WebAuthn challenges (in production, use Redis)
-const challengeStore = new Map<string, { challenge: string; userId?: string; email?: string; expiresAt: Date; type: 'register' | 'verify' }>();
+const challengeStore = new Map<string, { challenge: string; userId?: string; email?: string; expiresAt: Date; type: 'register' | 'verify'; isNewUser?: boolean }>();
 
 // Clean up expired challenges every 5 minutes
 setInterval(() => {
@@ -328,6 +328,28 @@ export const webauthnRegister = async (req: Request, res: Response): Promise<voi
       return;
     }
 
+    // If user doesn't exist yet (new account creation), we need the user to be created first
+    // This should have been done by the frontend before calling this endpoint
+    // If isNewUser flag is set but no userId, the user creation failed or wasn't completed
+    if (storedChallenge.isNewUser && !storedChallenge.userId) {
+      // Check again if user was created
+      const userCheck = await query(
+        'SELECT id FROM users WHERE email = $1',
+        [email.toLowerCase()]
+      );
+      
+      if (userCheck.rows.length === 0) {
+        res.status(400).json({
+          success: false,
+          message: 'Please create your account first using email and password, then you can add biometric authentication.'
+        } as WebAuthnRegisterResponse);
+        return;
+      }
+      
+      // User was created, update the challenge with userId
+      storedChallenge.userId = userCheck.rows[0].id;
+    }
+
     // Verify the WebAuthn registration
     const verification = await verifyWebAuthnRegistration(
       email,
@@ -481,7 +503,7 @@ export const webauthnVerify = async (req: Request, res: Response): Promise<void>
 // GET /auth/webauthn/register/options
 export const getWebAuthnRegisterOptions = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { email } = req.query;
+    const { email, createAccount } = req.query;
 
     if (!email || typeof email !== 'string') {
       res.status(400).json({
@@ -497,36 +519,184 @@ export const getWebAuthnRegisterOptions = async (req: Request, res: Response): P
       [email.toLowerCase()]
     );
 
+    let userId: string | undefined;
+    let isNewUser = false;
+
     if (userResult.rows.length === 0) {
-      res.status(404).json({
-        success: false,
-        message: 'User not found'
-      });
-      return;
+      // User doesn't exist - this is okay during account registration
+      // We'll create the user during WebAuthn registration verification
+      if (createAccount !== 'true') {
+        // If not creating account, require user to exist (for adding devices to existing account)
+        res.status(404).json({
+          success: false,
+          message: 'User not found. Please create your account first using email and password.'
+        });
+        return;
+      }
+      isNewUser = true;
+    } else {
+      userId = userResult.rows[0].id;
     }
 
-    const userId = userResult.rows[0].id;
-
-    // Generate registration options
+    // Generate registration options (userId can be undefined for new users)
     const options = await generateWebAuthnRegistrationOptions(email, userId);
     
-    // Store challenge
+    // Store challenge with flag indicating if this is for a new user
     const challengeKey = `register_${email}`;
     challengeStore.set(challengeKey, {
       challenge: options.challenge,
       userId,
       email: email.toLowerCase(),
       expiresAt: new Date(Date.now() + 5 * 60 * 1000), // 5 minutes
-      type: 'register'
-    });
+      type: 'register',
+      isNewUser // Store flag to indicate we need to create user account
+    } as any);
 
     res.json({
       success: true,
-      options
+      options,
+      isNewUser // Return flag so frontend knows user needs to be created
     });
 
   } catch (error) {
     console.error('Error generating WebAuthn registration options:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+};
+
+// GET /auth/webauthn/devices - Get user's registered devices
+export const getWebAuthnDevices = async (req: Request, res: Response): Promise<void> => {
+  try {
+    // Get user ID from authenticated token (assumes authenticateToken middleware was used)
+    const userId = (req as any).user?.userId;
+    
+    if (!userId) {
+      res.status(401).json({
+        success: false,
+        message: 'Unauthorized'
+      });
+      return;
+    }
+
+    // Get all credentials for the user
+    const result = await query(
+      `SELECT 
+        id,
+        credential_id,
+        device_type,
+        created_at,
+        last_used_at
+       FROM webauthn_credentials 
+       WHERE user_id = $1
+       ORDER BY created_at DESC`,
+      [userId]
+    );
+
+    const devices = result.rows.map((row: any) => ({
+      id: row.id,
+      credentialId: row.credential_id,
+      deviceType: row.device_type || 'platform',
+      registeredAt: row.created_at,
+      lastUsedAt: row.last_used_at
+    }));
+
+    res.json({
+      success: true,
+      devices
+    });
+
+  } catch (error) {
+    console.error('Error fetching WebAuthn devices:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+};
+
+// DELETE /auth/webauthn/devices/:credentialId - Delete a registered device
+export const deleteWebAuthnDevice = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const userId = (req as any).user?.userId;
+    const { credentialId } = req.params;
+    
+    if (!userId) {
+      res.status(401).json({
+        success: false,
+        message: 'Unauthorized'
+      });
+      return;
+    }
+
+    if (!credentialId) {
+      res.status(400).json({
+        success: false,
+        message: 'Credential ID is required'
+      });
+      return;
+    }
+
+    // Check if the credential belongs to the user
+    const checkResult = await query(
+      'SELECT id FROM webauthn_credentials WHERE credential_id = $1 AND user_id = $2',
+      [credentialId, userId]
+    );
+
+    if (checkResult.rows.length === 0) {
+      res.status(404).json({
+        success: false,
+        message: 'Device not found or does not belong to you'
+      });
+      return;
+    }
+
+    // Count remaining credentials
+    const countResult = await query(
+      'SELECT COUNT(*) as count FROM webauthn_credentials WHERE user_id = $1',
+      [userId]
+    );
+    const remainingCount = parseInt(countResult.rows[0].count);
+
+    // Prevent deleting the last device
+    if (remainingCount <= 1) {
+      res.status(400).json({
+        success: false,
+        message: 'Cannot delete your last registered device. Please register another device first.'
+      });
+      return;
+    }
+
+    // Delete the credential
+    await query(
+      'DELETE FROM webauthn_credentials WHERE credential_id = $1 AND user_id = $2',
+      [credentialId, userId]
+    );
+
+    // Log audit event
+    await logAuditEvent(
+      (req as any).user?.tenantId,
+      userId,
+      AuditAction.SECURITY_SETTINGS_UPDATED,
+      ResourceType.USER,
+      userId,
+      {
+        action: 'webauthn_device_deleted',
+        credentialId: credentialId
+      },
+      undefined,
+      req
+    );
+
+    res.json({
+      success: true,
+      message: 'Device removed successfully'
+    });
+
+  } catch (error) {
+    console.error('Error deleting WebAuthn device:', error);
     res.status(500).json({
       success: false,
       message: 'Internal server error'

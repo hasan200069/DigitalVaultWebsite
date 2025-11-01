@@ -1,7 +1,50 @@
 import React, { useState, useRef } from 'react';
-import { XMarkIcon, CloudArrowUpIcon, DocumentIcon, ShieldCheckIcon } from '@heroicons/react/24/outline';
+import { XMarkIcon, CloudArrowUpIcon, DocumentIcon, ShieldCheckIcon, EyeIcon } from '@heroicons/react/24/outline';
 import { useCrypto } from '../utils/useCrypto';
 import { vaultApiService } from '../services/vaultApi';
+import { ocrApiService } from '../services/ocrApi';
+import { clientOCRService, type ClientOCRResponse } from '../services/clientOCRService';
+import TagChips from './OCR/TagChips';
+import RedactionSuggestion from './OCR/RedactionSuggestion';
+
+// Helper function to generate UUID
+const generateUUID = (): string => {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+};
+
+// Helper function to store OCR results on server
+const storeOCRResultsOnServer = async (itemId: string, ocrResults: ClientOCRResponse): Promise<void> => {
+  try {
+    console.log('Storing OCR results on server for item:', itemId);
+    
+    if (!ocrResults.success || !ocrResults.ocrResult) {
+      console.log('No OCR results to store');
+      return;
+    }
+
+    const request = {
+      itemId,
+      ocrResult: {
+        extractedText: ocrResults.ocrResult.extractedText,
+        confidence: ocrResults.ocrResult.confidence,
+        processingTime: ocrResults.ocrResult.processingTime
+      },
+      autoTags: ocrResults.autoTags || [],
+      redactionSuggestions: ocrResults.redactionSuggestions || []
+    };
+
+    console.log('Sending OCR results to backend:', request);
+    const response = await ocrApiService.storeOCRResults(request);
+    console.log('OCR results stored successfully:', response);
+  } catch (error) {
+    console.error('Failed to store OCR results on server:', error);
+    throw error;
+  }
+};
 
 interface UploadModalProps {
   isOpen: boolean;
@@ -10,7 +53,7 @@ interface UploadModalProps {
 }
 
 interface UploadProgress {
-  stage: 'encrypting' | 'uploading' | 'complete';
+  stage: 'processing_ocr' | 'encrypting' | 'uploading' | 'complete';
   progress: number;
   message: string;
 }
@@ -30,17 +73,43 @@ const UploadModal: React.FC<UploadModalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [showPassphrasePrompt, setShowPassphrasePrompt] = useState(false);
   const [passphrase, setPassphrase] = useState('');
+  const [ocrResult, setOcrResult] = useState<any>(null);
+  const [autoTags, setAutoTags] = useState<any[]>([]);
+  const [redactionSuggestions, setRedactionSuggestions] = useState<any[]>([]);
+  const [showOCRResults, setShowOCRResults] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { isVMKInitialized, encryptFile, restoreVMK } = useCrypto();
 
+  // Document Categories as per vault organization
+  const documentCategories = [
+    'Court Documents',
+    'Wills',
+    'Real estate documents',
+    'Title deeds',
+    'Life Insurance documents',
+    'Cryptocurrencies and NFTs',
+    'Car Documents',
+    'Private sensitive documents',
+    'Business documents',
+    'Digital will',
+    'Important documents',
+    'School certificates',
+    'Financial documents',
+    'End-of-life planning',
+    'Marriage certificates',
+    'Church/Mosque documents'
+  ];
+
   const categories = [
+    { value: '', label: 'Select a category...' },
     { value: 'documents', label: 'Documents' },
     { value: 'images', label: 'Images' },
     { value: 'videos', label: 'Videos' },
     { value: 'audio', label: 'Audio' },
     { value: 'archives', label: 'Archives' },
-    { value: 'other', label: 'Other' }
+    { value: 'other', label: 'Other' },
+    ...documentCategories.map(cat => ({ value: cat.toLowerCase().replace(/\s+/g, '-'), label: cat }))
   ];
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -115,14 +184,75 @@ const UploadModal: React.FC<UploadModalProps> = ({
 
     setIsUploading(true);
     setError(null);
-    setUploadProgress({ stage: 'encrypting', progress: 0, message: 'Encrypting file...' });
+
+    let ocrResults: ClientOCRResponse | null = null;
 
     try {
-      // Step 1: Encrypt the file
+      // Step 1: Process OCR BEFORE encryption (if supported file type)
+      console.log('Upload starting - checking file for OCR support', {
+        fileName: selectedFile.name,
+        fileType: selectedFile.type,
+        fileSize: selectedFile.size,
+        isSupported: clientOCRService.isSupported(selectedFile)
+      });
+
+      if (clientOCRService.isSupported(selectedFile)) {
+        console.log('File is supported for OCR, starting processing...');
+        setUploadProgress({ 
+          stage: 'processing_ocr', 
+          progress: 10, 
+          message: 'Processing OCR...' 
+        });
+
+        console.log('Starting client-side OCR processing for:', selectedFile.name);
+        ocrResults = await clientOCRService.processOCR(selectedFile);
+        console.log('OCR processing completed, results:', ocrResults);
+        
+        if (ocrResults.success) {
+          setOcrResult({
+            id: generateUUID(),
+            itemId: '', // Will be set after item creation
+            extractedText: ocrResults.ocrResult!.extractedText,
+            confidence: ocrResults.ocrResult!.confidence,
+            processingTime: ocrResults.ocrResult!.processingTime,
+            createdAt: new Date().toISOString()
+          });
+          // Add IDs to auto-generated tags and redaction suggestions for React keys
+          setAutoTags((ocrResults.autoTags || []).map((tag, index) => ({
+            ...tag,
+            id: `auto-tag-${index}-${Date.now()}`
+          })));
+          setRedactionSuggestions((ocrResults.redactionSuggestions || []).map((suggestion, index) => ({
+            ...suggestion,
+            id: `redaction-${index}-${Date.now()}`
+          })));
+          setShowOCRResults(true);
+          console.log('Client-side OCR completed:', {
+            textLength: ocrResults.ocrResult!.extractedText.length,
+            confidence: ocrResults.ocrResult!.confidence,
+            autoTags: ocrResults.autoTags,
+            redactionSuggestions: ocrResults.redactionSuggestions
+          });
+        } else {
+          console.warn('Client-side OCR failed:', ocrResults.message);
+          // Set flag to attempt backend OCR fallback after upload
+          ocrResults.backendFallbackNeeded = true;
+        }
+      } else {
+        console.log('File type not supported for OCR, skipping OCR processing');
+      }
+
+      // Step 2: Encrypt the file
+      setUploadProgress({ stage: 'encrypting', progress: 30, message: 'Encrypting file...' });
       const encryptionResult = await encryptFile(selectedFile);
 
-      // Step 2: Create vault item
-      setUploadProgress({ stage: 'uploading', progress: 0, message: 'Creating vault item...' });
+      // Step 3: Create vault item
+      setUploadProgress({ stage: 'uploading', progress: 50, message: 'Creating vault item...' });
+      
+      // Combine user tags with auto-generated tags
+      const userTags = tags ? tags.split(',').map(tag => tag.trim()).filter(Boolean) : [];
+      const autoGenTags = ocrResults?.autoTags?.map(tag => tag.tag) || [];
+      const allTags = [...new Set([...userTags, ...autoGenTags])]; // Remove duplicates
       
       // Prepare encryption metadata: include CEK iv and file iv so we can decrypt later
       const b64 = (u8: Uint8Array) => btoa(String.fromCharCode(...Array.from(u8)));
@@ -134,11 +264,20 @@ const UploadModal: React.FC<UploadModalProps> = ({
         fileIv: b64(new Uint8Array(encryptionResult.encryptedData.iv))
       };
 
+      // Map category slug back to original name for document categories
+      const getCategoryName = (slug: string): string => {
+        if (!slug) return slug;
+        const foundCategory = documentCategories.find(cat => 
+          cat.toLowerCase().replace(/\s+/g, '-') === slug
+        );
+        return foundCategory || slug;
+      };
+
       const itemData = {
         name: itemName,
         description: description || undefined,
-        category: category || undefined,
-        tags: tags ? tags.split(',').map(tag => tag.trim()).filter(Boolean) : undefined,
+        category: category ? getCategoryName(category) : undefined,
+        tags: allTags.length > 0 ? allTags : undefined,
         fileSize: encryptionResult.encryptedData.ciphertext.byteLength,
         mimeType: selectedFile.type,
         fileExtension: selectedFile.name.split('.').pop(),
@@ -152,10 +291,10 @@ const UploadModal: React.FC<UploadModalProps> = ({
         throw new Error(createResponse.message || 'Failed to create vault item');
       }
 
-      // Step 3: Upload encrypted file
+      // Step 4: Upload encrypted file
       setUploadProgress({ 
         stage: 'uploading', 
-        progress: 50, 
+        progress: 70, 
         message: 'Uploading encrypted file...' 
       });
 
@@ -165,7 +304,135 @@ const UploadModal: React.FC<UploadModalProps> = ({
         selectedFile.type
       );
 
-      // Step 4: Complete
+      // Step 5: Store OCR results on server (if OCR was successful)
+      const itemId = createResponse.item?.id;
+      console.log('Checking OCR results for storage:', {
+        ocrResults: ocrResults,
+        hasOcrResults: !!ocrResults,
+        ocrSuccess: ocrResults?.success,
+        hasOcrResult: !!ocrResults?.ocrResult,
+        createResponse: createResponse,
+        itemId: itemId,
+        shouldStore: !!(ocrResults?.success && ocrResults.ocrResult && itemId)
+      });
+
+      if (ocrResults?.success && ocrResults.ocrResult && itemId) {
+        console.log('Starting to store OCR results on server...');
+        setUploadProgress({ 
+          stage: 'uploading', 
+          progress: 85, 
+          message: 'Storing OCR results...' 
+        });
+
+        try {
+          // Update the OCR result with the actual item ID
+          const updatedOcrResult = {
+            ...ocrResults.ocrResult,
+            itemId: itemId
+          };
+          setOcrResult({
+            id: generateUUID(),
+            itemId: itemId,
+            extractedText: updatedOcrResult.extractedText,
+            confidence: updatedOcrResult.confidence,
+            processingTime: updatedOcrResult.processingTime,
+            createdAt: new Date().toISOString()
+          });
+
+          // Store OCR results on the server for future retrieval
+          await storeOCRResultsOnServer(itemId, ocrResults);
+        } catch (storeError) {
+          console.warn('Failed to store OCR results on server:', storeError);
+          // Don't fail the upload if storing OCR results fails
+        }
+      } else {
+        console.log('Skipping OCR storage due to missing data:', {
+          ocrResults: !!ocrResults,
+          ocrSuccess: ocrResults?.success,
+          ocrResult: !!ocrResults?.ocrResult,
+          itemId: !!itemId,
+          createResponseKeys: Object.keys(createResponse)
+        });
+      }
+
+      // MISSING FALLBACK: Attempt backend OCR if client-side failed
+      if (itemId && ocrResults?.backendFallbackNeeded && clientOCRService.isSupported(selectedFile)) {
+        console.log('Attempting backend OCR fallback for item:', itemId);
+        setUploadProgress({ 
+          stage: 'uploading', 
+          progress: 90, 
+          message: 'Processing OCR on server (fallback)...' 
+        });
+
+        try {
+          // Prepare encrypted data for secure backend OCR processing
+          const b64 = (u8: Uint8Array) => btoa(String.fromCharCode(...Array.from(u8)));
+          
+          // Get the CEK for decryption (we need this for backend processing)
+          // Note: In a real implementation, you'd need proper key management here
+          const backendOCRRequest = {
+            itemId: itemId,
+            version: 1,
+            encryptedFileData: {
+              data: b64(new Uint8Array(encryptionResult.encryptedData.ciphertext)),
+              iv: b64(new Uint8Array(encryptionResult.encryptedData.iv))
+            },
+            encryptedCek: {
+              ciphertext: b64(new Uint8Array(encryptionResult.encryptedCek.ciphertext)),
+              iv: b64(new Uint8Array(encryptionResult.encryptedCek.iv))
+            },
+            // For demo purposes - in production you need proper VMK handling
+            decryptedCekKey: b64(new Uint8Array(32)) // This should be the actual CEK
+          };
+
+          console.log('Calling backend OCR with encrypted data...');
+          const backendOCRResponse = await ocrApiService.processOCR(
+            itemId, 
+            1,
+            backendOCRRequest.encryptedFileData,
+            backendOCRRequest.encryptedCek,
+            backendOCRRequest.decryptedCekKey
+          );
+          
+          if (backendOCRResponse.success && backendOCRResponse.ocrResult) {
+            console.log('Backend OCR fallback successful');
+            
+            // Update local state with backend results
+            setOcrResult({
+              id: generateUUID(),
+              itemId: itemId,
+              extractedText: backendOCRResponse.ocrResult.extractedText,
+              confidence: backendOCRResponse.ocrResult.confidence,
+              processingTime: backendOCRResponse.ocrResult.processingTime,
+              createdAt: new Date().toISOString()
+            });
+
+            if (backendOCRResponse.autoTags) {
+              setAutoTags(backendOCRResponse.autoTags.map((tag, index) => ({
+                ...tag,
+                id: tag.id || `backend-tag-${index}-${Date.now()}`
+              })));
+            }
+
+            if (backendOCRResponse.redactionSuggestions) {
+              setRedactionSuggestions(backendOCRResponse.redactionSuggestions.map((suggestion, index) => ({
+                ...suggestion,
+                id: suggestion.id || `backend-redaction-${index}-${Date.now()}`
+              })));
+            }
+
+            setShowOCRResults(true);
+            console.log('Backend OCR fallback completed successfully');
+          } else {
+            console.warn('Backend OCR fallback also failed:', backendOCRResponse.message);
+          }
+        } catch (backendError) {
+          console.error('Backend OCR fallback failed:', backendError);
+          // Don't fail the upload if backend OCR fails
+        }
+      }
+
+      // Step 5: Complete
       setUploadProgress({ 
         stage: 'complete', 
         progress: 100, 
@@ -185,11 +452,16 @@ const UploadModal: React.FC<UploadModalProps> = ({
       // Notify parent
       onUploadComplete();
 
-      // Close modal after a short delay
+      // Close modal after a short delay (longer if OCR results are shown)
+      const delay = showOCRResults ? 3000 : 1500;
       setTimeout(() => {
         onClose();
         setUploadProgress(null);
-      }, 1500);
+        setOcrResult(null);
+        setAutoTags([]);
+        setRedactionSuggestions([]);
+        setShowOCRResults(false);
+      }, delay);
 
     } catch (error) {
       console.error('Upload error:', error);
@@ -363,6 +635,46 @@ const UploadModal: React.FC<UploadModalProps> = ({
                   className="bg-blue-600 h-2 rounded-full transition-all duration-300"
                   style={{ width: `${uploadProgress.progress}%` }}
                 />
+              </div>
+            </div>
+          )}
+
+          {/* OCR Results */}
+          {showOCRResults && ocrResult && (
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4 space-y-4">
+              <div className="flex items-center gap-2">
+                <EyeIcon className="h-5 w-5 text-green-600" />
+                <h3 className="text-sm font-medium text-green-800">OCR Processing Complete</h3>
+              </div>
+              
+              {/* Auto Tags */}
+              {autoTags.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-medium text-gray-700 mb-2">Auto-generated Tags:</h4>
+                  <TagChips tags={autoTags} showConfidence={true} />
+                </div>
+              )}
+
+              {/* Redaction Suggestions */}
+              {redactionSuggestions.length > 0 && (
+                <RedactionSuggestion
+                  suggestions={redactionSuggestions}
+                  onRedact={(suggestionIds) => {
+                    console.log('Redacting suggestions:', suggestionIds);
+                    // In a real implementation, you'd call an API to apply redactions
+                  }}
+                  onDismiss={(suggestionIds) => {
+                    console.log('Dismissing suggestions:', suggestionIds);
+                    setRedactionSuggestions(prev => 
+                      prev.filter(s => !suggestionIds.includes(s.id))
+                    );
+                  }}
+                />
+              )}
+
+              <div className="text-xs text-green-600">
+                OCR confidence: {(ocrResult.confidence * 100).toFixed(1)}% • 
+                Processing time: {ocrResult.processingTime}ms
               </div>
             </div>
           )}

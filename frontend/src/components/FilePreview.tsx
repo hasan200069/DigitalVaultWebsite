@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { XMarkIcon, DocumentIcon, PhotoIcon, VideoCameraIcon, MusicalNoteIcon } from '@heroicons/react/24/outline';
+import { XMarkIcon, DocumentIcon, PhotoIcon, VideoCameraIcon, MusicalNoteIcon, EyeIcon } from '@heroicons/react/24/outline';
+import OCRPreview from './OCR/OCRPreview';
 
 interface FilePreviewProps {
   file: {
@@ -19,7 +20,7 @@ interface FilePreviewProps {
 }
 
 const FilePreview: React.FC<FilePreviewProps> = ({ file, isOpen, onClose }) => {
-  const [activeTab, setActiveTab] = useState<'details' | 'preview'>('details');
+  const [activeTab, setActiveTab] = useState<'details' | 'preview' | 'ocr'>('details');
 
   if (!isOpen) return null;
 
@@ -53,6 +54,32 @@ const FilePreview: React.FC<FilePreviewProps> = ({ file, isOpen, onClose }) => {
                     file.mimeType?.startsWith('audio/') ||
                     file.mimeType?.includes('pdf') ||
                     file.mimeType?.startsWith('text/');
+
+  // Check if OCR is supported for this file type
+  const isOCRSupported = () => {
+    if (!file.mimeType) return false;
+    
+    const supportedMimeTypes = [
+      'image/jpeg', 
+      'image/jpg', 
+      'image/png', 
+      'image/webp', 
+      'image/tiff', 
+      'image/tif', 
+      'application/pdf'
+    ];
+    
+    let isSupported = supportedMimeTypes.includes(file.mimeType);
+    
+    // Also check file extension as fallback
+    if (!isSupported && file.name) {
+      const fileExtension = file.name.toLowerCase().split('.').pop();
+      const supportedExtensions = ['jpg', 'jpeg', 'png', 'webp', 'tiff', 'tif', 'pdf'];
+      isSupported = supportedExtensions.includes(fileExtension || '');
+    }
+    
+    return isSupported;
+  };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -99,6 +126,21 @@ const FilePreview: React.FC<FilePreviewProps> = ({ file, isOpen, onClose }) => {
                 }`}
               >
                 Preview
+              </button>
+            )}
+            {isOCRSupported() && (
+              <button
+                onClick={() => setActiveTab('ocr')}
+                className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                  activeTab === 'ocr'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <div className="flex items-center gap-1">
+                  <EyeIcon className="h-4 w-4" />
+                  OCR
+                </div>
               </button>
             )}
           </nav>
@@ -198,6 +240,10 @@ const FilePreview: React.FC<FilePreviewProps> = ({ file, isOpen, onClose }) => {
                 </p>
               </div>
             </div>
+          )}
+
+          {activeTab === 'ocr' && isOCRSupported() && (
+            <OCRPreview itemId={file.id} />
           )}
         </div>
 

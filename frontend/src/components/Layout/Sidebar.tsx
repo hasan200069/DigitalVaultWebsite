@@ -7,7 +7,12 @@ import {
   ClipboardDocumentListIcon, 
   Cog6ToothIcon,
   XMarkIcon,
-  Squares2X2Icon
+  Squares2X2Icon,
+  ArchiveBoxIcon,
+  BuildingOfficeIcon,
+  DocumentDuplicateIcon,
+  PencilSquareIcon,
+  CurrencyDollarIcon
 } from '@heroicons/react/24/outline';
 
 interface SidebarProps {
@@ -18,9 +23,14 @@ interface SidebarProps {
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: Squares2X2Icon },
   { name: 'Vault', href: '/dashboard/vault', icon: HomeIcon },
+  { name: 'Packages', href: '/dashboard/packages', icon: ArchiveBoxIcon },
+  { name: 'Pricing', href: '/dashboard/pricing', icon: CurrencyDollarIcon },
   { name: 'Inheritance', href: '/dashboard/inheritance', icon: DocumentTextIcon },
+  { name: 'Contract management', href: '/dashboard/contracts', icon: DocumentDuplicateIcon },
   { name: 'Search', href: '/dashboard/search', icon: MagnifyingGlassIcon },
+  { name: 'E-signature', href: '/dashboard/esignature', icon: PencilSquareIcon },
   { name: 'Audit', href: '/dashboard/audit', icon: ClipboardDocumentListIcon },
+  { name: 'Corporate Vault (White label features)', href: '/dashboard/corporate', icon: BuildingOfficeIcon },
   { name: 'Settings', href: '/dashboard/settings', icon: Cog6ToothIcon },
 ];
 
@@ -58,10 +68,10 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
           <div className="px-6 py-4 border-b border-gray-200">
             <div className="flex items-center">
               <div className="h-10 w-10 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center mr-3">
-                <span className="text-white font-bold text-sm">ACME</span>
+                <span className="text-white font-bold text-xl">F</span>
               </div>
               <div>
-                <h2 className="text-lg font-semibold text-gray-900">ACME Corporation</h2>
+                <h2 className="text-lg font-semibold text-gray-900">Fortva Vault</h2>
                 <p className="text-sm text-gray-500">Digital Vault</p>
               </div>
             </div>

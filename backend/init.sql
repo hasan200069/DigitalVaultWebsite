@@ -267,6 +267,46 @@ CREATE INDEX IF NOT EXISTS idx_notifications_is_read ON notifications(is_read);
 CREATE INDEX IF NOT EXISTS idx_notifications_created_at ON notifications(created_at);
 CREATE INDEX IF NOT EXISTS idx_notifications_user_unread ON notifications(user_id, is_read) WHERE is_read = false;
 
+-- Create OCR results table
+CREATE TABLE IF NOT EXISTS ocr_results (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    item_id UUID NOT NULL REFERENCES vault_items(id) ON DELETE CASCADE,
+    extracted_text TEXT NOT NULL,
+    confidence DECIMAL(5,2) NOT NULL,
+    processing_time INTEGER NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create auto tags table
+CREATE TABLE IF NOT EXISTS auto_tags (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    item_id UUID NOT NULL REFERENCES vault_items(id) ON DELETE CASCADE,
+    tag VARCHAR(255) NOT NULL,
+    category VARCHAR(50) NOT NULL CHECK (category IN ('financial', 'legal', 'medical', 'personal', 'other')),
+    confidence DECIMAL(5,2) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create redaction suggestions table
+CREATE TABLE IF NOT EXISTS redaction_suggestions (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    item_id UUID NOT NULL REFERENCES vault_items(id) ON DELETE CASCADE,
+    type VARCHAR(50) NOT NULL CHECK (type IN ('ssn', 'credit_card', 'bank_account', 'phone', 'email', 'address')),
+    text VARCHAR(500) NOT NULL,
+    start_index INTEGER NOT NULL,
+    end_index INTEGER NOT NULL,
+    confidence DECIMAL(5,2) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create indexes for OCR tables
+CREATE INDEX IF NOT EXISTS idx_ocr_results_item_id ON ocr_results(item_id);
+CREATE INDEX IF NOT EXISTS idx_ocr_results_created_at ON ocr_results(created_at);
+CREATE INDEX IF NOT EXISTS idx_auto_tags_item_id ON auto_tags(item_id);
+CREATE INDEX IF NOT EXISTS idx_auto_tags_category ON auto_tags(category);
+CREATE INDEX IF NOT EXISTS idx_redaction_suggestions_item_id ON redaction_suggestions(item_id);
+CREATE INDEX IF NOT EXISTS idx_redaction_suggestions_type ON redaction_suggestions(type);
+
 -- Insert a default admin user (password: admin123)
 INSERT INTO users (tenant_id, email, password_hash, first_name, last_name, is_admin) 
 SELECT 
