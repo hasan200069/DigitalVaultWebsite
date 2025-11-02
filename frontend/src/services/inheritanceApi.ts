@@ -1,3 +1,5 @@
+import { getAccessToken } from '../utils/auth';
+
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 export interface CreatePlanRequest {
@@ -109,7 +111,7 @@ class InheritanceApiService {
     };
 
     // Add authorization header if token exists
-    const token = localStorage.getItem('accessToken');
+    const token = getAccessToken();
     if (token) {
       defaultHeaders['Authorization'] = `Bearer ${token}`;
     }

@@ -80,7 +80,7 @@ class ApiService {
     };
 
     // Add authorization header if token exists
-    const token = localStorage.getItem('accessToken');
+    const token = this.getAccessToken();
     if (token) {
       defaultHeaders.Authorization = `Bearer ${token}`;
     }

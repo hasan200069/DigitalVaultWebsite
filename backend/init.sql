@@ -146,7 +146,7 @@ INSERT INTO tenants (name, domain, branding)
 VALUES (
     'Digital Vault Default',
     'default',
-    '{"logo": "", "primaryColor": "#3B82F6", "secondaryColor": "#1E40AF", "companyName": "Digital Vault"}'
+    '{}'
 ) ON CONFLICT (domain) DO NOTHING;
 
 -- Create inheritance_plans table

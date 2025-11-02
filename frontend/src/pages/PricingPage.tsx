@@ -49,7 +49,7 @@ const PricingPage: React.FC = () => {
     'Intake forms',
     'Templates',
     'IP whitelisting',
-    'White label',
+    'White label (Coming Soon)',
     'Contract management'
   ];
 

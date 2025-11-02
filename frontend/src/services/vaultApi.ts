@@ -1,4 +1,5 @@
 // Vault API service for frontend-backend communication
+import { getAccessToken } from '../utils/auth';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
@@ -115,7 +116,7 @@ class VaultApiService {
     };
 
     // Add authorization header if token exists
-    const token = localStorage.getItem('accessToken');
+    const token = getAccessToken();
     if (token) {
       defaultHeaders['Authorization'] = `Bearer ${token}`;
       console.log('API Request - Token being sent:', {
@@ -257,7 +258,7 @@ class VaultApiService {
   // Download file from URL
   async downloadFile(downloadUrl: string): Promise<ArrayBuffer> {
     try {
-      const token = localStorage.getItem('accessToken');
+      const token = getAccessToken();
       
       if (!token) {
         throw new Error('Authentication required');

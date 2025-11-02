@@ -14,7 +14,7 @@ import CryptoDemo from './components/CryptoDemo';
 import PackagesPage from './pages/PackagesPage';
 import ContractsPage from './pages/ContractsPage';
 import ESignaturePage from './pages/ESignaturePage';
-import CorporatePage from './pages/CorporatePage';
+import ComingSoonPage from './pages/ComingSoonPage';
 import PricingPage from './pages/PricingPage';
 
 // Protected Route Component
@@ -96,7 +96,7 @@ function App() {
             <Route path="search" element={<SearchPage />} />
             <Route path="esignature" element={<ESignaturePage />} />
             <Route path="audit" element={<AuditPage />} />
-            <Route path="corporate" element={<CorporatePage />} />
+            <Route path="corporate" element={<ComingSoonPage />} />
             <Route path="settings" element={<SettingsPage />} />
             <Route path="crypto-demo" element={<CryptoDemo />} />
           </Route>

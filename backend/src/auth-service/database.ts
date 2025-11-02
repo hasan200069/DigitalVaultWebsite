@@ -50,7 +50,6 @@ export interface Tenant {
   id: string;
   name: string;
   domain: string;
-  branding: any;
   is_active: boolean;
   created_at: Date;
   updated_at: Date;

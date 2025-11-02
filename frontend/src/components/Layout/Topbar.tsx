@@ -51,7 +51,7 @@ const Topbar: React.FC<TopbarProps> = ({ onMenuClick }) => {
     if (path.includes('/search')) return 'Search';
     if (path.includes('/esignature')) return 'E-signature';
     if (path.includes('/audit')) return 'Audit';
-    if (path.includes('/corporate')) return 'Corporate Vault';
+    if (path.includes('/corporate')) return 'Coming Soon';
     if (path.includes('/settings')) return 'Settings';
     return 'Dashboard';
   };

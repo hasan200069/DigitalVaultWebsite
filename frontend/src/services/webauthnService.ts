@@ -4,6 +4,7 @@ import {
   browserSupportsWebAuthn,
   platformAuthenticatorIsAvailable
 } from '@simplewebauthn/browser';
+import { getAccessToken } from '../utils/auth';
 
 export interface WebAuthnRegistrationOptions {
   challenge: string;
@@ -324,7 +325,7 @@ export class WebAuthnService {
     message?: string;
   }> {
     try {
-      const token = localStorage.getItem('accessToken');
+      const token = getAccessToken();
       if (!token) {
         return {
           success: false,
@@ -367,7 +368,7 @@ export class WebAuthnService {
    */
   static async deleteDevice(credentialId: string): Promise<WebAuthnServiceResponse> {
     try {
-      const token = localStorage.getItem('accessToken');
+      const token = getAccessToken();
       if (!token) {
         return {
           success: false,

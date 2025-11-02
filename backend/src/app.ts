@@ -4,7 +4,6 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 import dotenv from 'dotenv';
 import { authRoutes } from './auth-service';
-import { tenantRoutes } from './tenant-service';
 import { vaultRoutes } from './vault-service';
 import { inheritanceRouter } from './inheritance-service';
 import { auditRoutes } from './audit-service';
@@ -39,8 +38,6 @@ app.get('/health', (req, res) => {
 // Authentication routes
 app.use('/auth', authRoutes);
 
-// Tenant routes
-app.use('/tenants', tenantRoutes);
 
 // Vault routes
 app.use('/vault', vaultRoutes);

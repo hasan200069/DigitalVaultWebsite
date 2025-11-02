@@ -1,4 +1,5 @@
 // OCR API service for frontend
+import { getAccessToken } from '../utils/auth';
 
 export interface OCRResult {
   id: string;
@@ -94,7 +95,7 @@ class OCRApiService {
     endpoint: string,
     options: RequestInit = {}
   ): Promise<T> {
-    const token = localStorage.getItem('accessToken');
+    const token = getAccessToken();
     
     const response = await fetch(`${this.baseUrl}${endpoint}`, {
       ...options,

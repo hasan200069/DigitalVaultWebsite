@@ -30,7 +30,7 @@ const navigation = [
   { name: 'Search', href: '/dashboard/search', icon: MagnifyingGlassIcon },
   { name: 'E-signature', href: '/dashboard/esignature', icon: PencilSquareIcon },
   { name: 'Audit', href: '/dashboard/audit', icon: ClipboardDocumentListIcon },
-  { name: 'Corporate Vault (White label features)', href: '/dashboard/corporate', icon: BuildingOfficeIcon },
+  { name: 'Corporate Vault', href: '/dashboard/corporate', icon: BuildingOfficeIcon },
   { name: 'Settings', href: '/dashboard/settings', icon: Cog6ToothIcon },
 ];
 

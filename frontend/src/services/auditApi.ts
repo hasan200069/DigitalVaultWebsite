@@ -1,4 +1,5 @@
 // Audit API service for frontend
+import { getAccessToken } from '../utils/auth';
 
 export interface AuditLog {
   id: string;
@@ -65,7 +66,7 @@ class AuditApiService {
     endpoint: string,
     options: RequestInit = {}
   ): Promise<T> {
-    const token = localStorage.getItem('accessToken');
+    const token = getAccessToken();
     
     if (!token) {
       throw new Error('Authentication required');
@@ -108,7 +109,7 @@ class AuditApiService {
   }
 
   async exportAuditLogs(request: ExportAuditLogsRequest): Promise<void> {
-    const token = localStorage.getItem('accessToken');
+    const token = getAccessToken();
     
     if (!token) {
       throw new Error('Authentication required');

@@ -1,4 +1,5 @@
 // Search API service for vault items
+import { getAccessToken } from '../utils/auth';
 
 export interface SearchFilters {
   category?: string;
@@ -77,7 +78,7 @@ class SearchApiService {
     endpoint: string,
     options: RequestInit = {}
   ): Promise<T> {
-    const token = localStorage.getItem('accessToken');
+    const token = getAccessToken();
     
     if (!token) {
       throw new Error('Authentication required');
@@ -116,7 +117,7 @@ class SearchApiService {
   }
 
   async downloadFile(itemId: string, version: number, fileName: string): Promise<void> {
-    const token = localStorage.getItem('accessToken');
+    const token = getAccessToken();
     
     if (!token) {
       throw new Error('Authentication required');
