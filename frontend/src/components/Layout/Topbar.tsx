@@ -21,6 +21,7 @@ const Topbar: React.FC<TopbarProps> = ({ onMenuClick }) => {
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const [notificationDropdownOpen, setNotificationDropdownOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [searchQuery, setSearchQuery] = useState('');
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
@@ -46,6 +47,7 @@ const Topbar: React.FC<TopbarProps> = ({ onMenuClick }) => {
     const path = location.pathname;
     if (path.includes('/vault')) return 'Vault';
     if (path.includes('/packages')) return 'Packages';
+    if (path.includes('/pricing')) return 'Pricing';
     if (path.includes('/inheritance')) return 'Inheritance';
     if (path.includes('/contracts')) return 'Contract management';
     if (path.includes('/search')) return 'Search';
@@ -66,9 +68,24 @@ const Topbar: React.FC<TopbarProps> = ({ onMenuClick }) => {
     navigate('/dashboard/settings');
   };
 
+  const navigateByQuery = (query: string) => {
+    const q = query.trim().toLowerCase();
+    if (!q) return;
+    if (q.includes('vault') || q.includes('file')) return navigate('/dashboard/vault');
+    if (q.includes('inherit') || q.includes('beneficiar')) return navigate('/dashboard/inheritance');
+    if (q.includes('audit') || q.includes('report') || q.includes('activity')) return navigate('/dashboard/audit');
+    if (q.includes('package') || q.includes('plan') || q.includes('pricing')) return navigate('/dashboard/packages');
+    if (q.includes('search')) return navigate('/dashboard/search');
+    if (q.includes('sign') || q.includes('signature')) return navigate('/dashboard/esignature');
+    if (q.includes('setting') || q.includes('profile')) return navigate('/dashboard/settings');
+    // default: go to search page with query param if exists
+    const target = q ? `/dashboard/search?q=${encodeURIComponent(q)}` : '/dashboard/search';
+    return navigate(target);
+  };
+
   return (
     <div className="sticky top-0 z-30 bg-white shadow-sm border-b border-gray-200">
-      <div className="flex h-16 items-center justify-between px-6 lg:px-8">
+      <div className="flex min-h-16 items-center justify-between px-6 lg:px-8 py-3">
         {/* Left side - Mobile menu button */}
         <div className="flex items-center">
           <button
@@ -80,25 +97,48 @@ const Topbar: React.FC<TopbarProps> = ({ onMenuClick }) => {
           </button>
         </div>
 
-        {/* Center - Breadcrumb or Page Context (hidden on mobile, shown on desktop) */}
-        <div className="flex-1 flex justify-center lg:justify-start">
-          <div className="hidden lg:block">
-            <nav className="flex" aria-label="Breadcrumb">
-              <ol className="flex items-center space-x-2">
-                <li>
-                  <span className="text-sm text-gray-500">Digital Vault</span>
-                </li>
-                <li>
-                  <svg className="h-4 w-4 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
-                  </svg>
-                </li>
-                <li>
-                  <span className="text-sm font-medium text-gray-900">{getCurrentPageName()}</span>
-                </li>
-              </ol>
-            </nav>
-          </div>
+        {/* Center - Breadcrumb (left), Welcome (floating, right-centric on dashboard) */}
+        <div className="flex-1 hidden lg:flex items-center relative">
+          <nav className="flex" aria-label="Breadcrumb">
+            <ol className="flex items-center space-x-2">
+              <li>
+                <span className="text-sm text-gray-500">Digital Vault</span>
+              </li>
+              <li>
+                <svg className="h-4 w-4 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+                </svg>
+              </li>
+              <li>
+                <span className="text-sm font-medium text-gray-900">{getCurrentPageName()}</span>
+              </li>
+            </ol>
+          </nav>
+
+          {location.pathname === '/dashboard' && (
+            <div className="absolute left-1/2 -translate-x-[32%] xl:-translate-x-[36%] flex items-center justify-between gap-3 md:gap-4 w-[36rem] md:w-[44rem] lg:w-[48rem] xl:w-[52rem] max-w-[72vw]">
+              <h1 className="shrink-0 text-xl sm:text-2xl font-bold text-gray-900 whitespace-nowrap">
+                {`Welcome back, ${user ? (user.firstName || user.email || 'User') : 'User'}`}
+              </h1>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      navigateByQuery(searchQuery);
+                    }
+                  }}
+                  className="w-48 md:w-56 lg:w-64 rounded-md border border-gray-300 bg-white px-3 py-1.5 pl-9 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Search to navigate..."
+                />
+                <svg className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M12.9 14.32a8 8 0 111.414-1.414l3.387 3.387a1 1 0 01-1.414 1.414l-3.387-3.387zM14 8a6 6 0 11-12 0 6 6 0 0112 0z" clipRule="evenodd" />
+                </svg>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Right side - Notifications and Profile */}

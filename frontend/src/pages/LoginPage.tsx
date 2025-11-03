@@ -171,7 +171,7 @@ const LoginPage: React.FC = () => {
               type="button"
               onClick={handleWebAuthnLogin}
               disabled={isWebAuthnLoading}
-              className="w-full flex justify-center items-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+              className="w-full flex justify-center items-center py-2 px-4 rounded-md shadow-sm text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 disabled:bg-emerald-400 disabled:cursor-not-allowed"
             >
               <DevicePhoneMobileIcon className="h-5 w-5 mr-2" />
               {isWebAuthnLoading ? 'Authenticating...' : 'WebAuthn / Biometric'}

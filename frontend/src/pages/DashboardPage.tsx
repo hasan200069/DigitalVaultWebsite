@@ -203,20 +203,6 @@ const DashboardPage: React.FC = () => {
   };
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header Section */}
-      <div className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="text-center lg:text-left">
-            <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">
-              {`Welcome back, ${user?.firstName || user?.email || 'User'}`}
-            </h1>
-            <p className="mt-1 text-base text-gray-600 max-w-2xl mx-auto lg:mx-0">
-              Here's an overview of your digital vault and recent activity.
-            </p>
-          </div>
-        </div>
-      </div>
-
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="space-y-8">
