@@ -9,6 +9,7 @@ import {
   ArrowDownTrayIcon,
 } from '@heroicons/react/24/outline';
 import { useAuth } from '../contexts/AuthContext';
+import { RecoveryKitService } from '../services/recoveryKitService';
 
 const SettingsPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState('account');
@@ -82,29 +83,26 @@ const SettingsPage: React.FC = () => {
     alert('Change password dialog would open here');
   };
 
-  const loadDevices = async () => {
-    setIsLoadingDevices(true);
-    setDeviceError('');
-    try {
-      const result = await WebAuthnService.getDevices();
-      if (result.success && result.devices) {
-        setDevices(result.devices);
-      } else {
-        setDeviceError(result.message || 'Failed to load devices');
-      }
-    } catch (error) {
-      setDeviceError('Failed to load devices');
-    } finally {
-      setIsLoadingDevices(false);
-    }
-  };
+  // Device management is not implemented in this build; UI shows an informational alert.
 
   const handleManageDevices = () => {
     alert('Device management is not available at this time.');
   };
 
   const handleDownloadRecoveryKit = async () => {
-    alert('Recovery kit download is not available at this time.');
+    try {
+      setIsRecoveryKitLoading(true);
+      if (!user?.id || !user?.email) {
+        alert('User information is incomplete. Please sign in again.');
+        return;
+      }
+      await RecoveryKitService.downloadRecoveryKit(user.id, user.email);
+      alert('Recovery Kit downloaded. Store it securely (offline).');
+    } catch (e: any) {
+      alert(e?.message || 'Failed to generate Recovery Kit. Ensure VMK is initialized.');
+    } finally {
+      setIsRecoveryKitLoading(false);
+    }
   };
 
   const renderAccountSettings = () => (
