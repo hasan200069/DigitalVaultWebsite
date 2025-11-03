@@ -141,8 +141,25 @@ const Topbar: React.FC<TopbarProps> = ({ onMenuClick }) => {
           )}
         </div>
 
-        {/* Right side - Notifications and Profile */}
+        {/* Right side - Optional search (non-dashboard), Notifications and Profile */}
         <div className="flex items-center space-x-4">
+          {location.pathname !== '/dashboard' && (
+            <div className="relative hidden md:block">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') navigateByQuery(searchQuery);
+                }}
+                className="w-40 lg:w-56 rounded-md border border-gray-300 bg-white px-3 py-1.5 pl-9 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="Search to navigate..."
+              />
+              <svg className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M12.9 14.32a8 8 0 111.414-1.414l3.387 3.387a1 1 0 01-1.414 1.414l-3.387-3.387zM14 8a6 6 0 11-12 0 6 6 0 0112 0z" clipRule="evenodd" />
+              </svg>
+            </div>
+          )}
           {/* Notifications */}
           <div className="relative">
             <button

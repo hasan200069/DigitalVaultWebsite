@@ -17,7 +17,20 @@ import {
   KeyIcon,
   TrashIcon,
   EyeIcon,
-  MagnifyingGlassIcon
+  MagnifyingGlassIcon,
+  ScaleIcon,
+  HomeIcon,
+  BanknotesIcon,
+  BriefcaseIcon,
+  AcademicCapIcon,
+  HeartIcon,
+  TruckIcon,
+  IdentificationIcon,
+  ShieldCheckIcon,
+  LockClosedIcon,
+  DocumentCheckIcon,
+  BuildingLibraryIcon,
+  BookmarkSquareIcon
 } from '@heroicons/react/24/outline';
 
 const DashboardPage: React.FC = () => {
@@ -359,28 +372,26 @@ const DashboardPage: React.FC = () => {
               <p className="text-sm text-gray-600 mb-4">Your vault is organized with the following pre-loaded document categories:</p>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {[
-                  'Court Documents',
-                  'Wills',
-                  'Real estate documents',
-                  'Title deeds',
-                  'Life Insurance documents',
-                  'Cryptocurrencies and NFTs',
-                  'Car Documents',
-                  'Private sensitive documents',
-                  'Business documents',
-                  'Digital will',
-                  'Important documents',
-                  'School certificates',
-                  'Financial documents',
-                  'End-of-life planning',
-                  'Marriage certificates',
-                  'Church/Mosque documents'
-                ].map((category) => (
-                  <div key={category} className="flex items-center space-x-2 text-sm text-gray-700">
-                    <svg className="h-5 w-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                    </svg>
-                    <span>{category}</span>
+                  { label: 'Court Documents', Icon: ScaleIcon, color: 'text-blue-600' },
+                  { label: 'Wills', Icon: DocumentTextIcon, color: 'text-indigo-600' },
+                  { label: 'Real estate documents', Icon: HomeIcon, color: 'text-emerald-600' },
+                  { label: 'Title deeds', Icon: IdentificationIcon, color: 'text-sky-600' },
+                  { label: 'Life Insurance documents', Icon: ShieldCheckIcon, color: 'text-green-600' },
+                  { label: 'Cryptocurrencies and NFTs', Icon: BanknotesIcon, color: 'text-yellow-600' },
+                  { label: 'Car Documents', Icon: TruckIcon, color: 'text-orange-600' },
+                  { label: 'Private sensitive documents', Icon: LockClosedIcon, color: 'text-rose-600' },
+                  { label: 'Business documents', Icon: BriefcaseIcon, color: 'text-purple-600' },
+                  { label: 'Digital will', Icon: DocumentCheckIcon, color: 'text-indigo-600' },
+                  { label: 'Important documents', Icon: BookmarkSquareIcon, color: 'text-red-600' },
+                  { label: 'School certificates', Icon: AcademicCapIcon, color: 'text-teal-600' },
+                  { label: 'Financial documents', Icon: BanknotesIcon, color: 'text-green-700' },
+                  { label: 'End-of-life planning', Icon: HeartIcon, color: 'text-pink-600' },
+                  { label: 'Marriage certificates', Icon: HeartIcon, color: 'text-pink-600' },
+                  { label: 'Church/Mosque documents', Icon: BuildingLibraryIcon, color: 'text-gray-600' },
+                ].map(({ label, Icon, color }) => (
+                  <div key={label} className="flex items-center space-x-2 text-sm text-gray-700">
+                    <Icon className={`h-5 w-5 ${color}`} />
+                    <span>{label}</span>
                   </div>
                 ))}
               </div>
