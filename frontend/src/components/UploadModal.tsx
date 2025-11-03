@@ -298,9 +298,12 @@ const UploadModal: React.FC<UploadModalProps> = ({
         message: 'Uploading encrypted file...' 
       });
 
+      // Convert Uint8Array -> ArrayBuffer view slice expected by upload API
+      const ct = encryptionResult.encryptedData.ciphertext;
+      const arrayBuffer = new Uint8Array(ct).buffer;
       await vaultApiService.uploadFile(
         createResponse.uploadUrl,
-        encryptionResult.encryptedData.ciphertext,
+        arrayBuffer,
         selectedFile.type
       );
 
@@ -691,14 +694,14 @@ const UploadModal: React.FC<UploadModalProps> = ({
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
               <h3 className="text-sm font-medium text-blue-800 mb-2">VMK Restoration Required</h3>
               <p className="text-sm text-blue-600 mb-3">
-                Your Vault Master Key needs to be restored. Please enter your passphrase to continue.
+                Your Vault Master Key needs to be restored. Please enter your passkey to continue.
               </p>
               <div className="space-y-3">
                 <input
                   type="password"
                   value={passphrase}
                   onChange={(e) => setPassphrase(e.target.value)}
-                  placeholder="Enter your passphrase"
+                  placeholder="Enter your passkey"
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
                 <div className="flex space-x-2">
