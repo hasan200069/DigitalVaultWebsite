@@ -1,22 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useCrypto } from '../utils/useCrypto';
 import { cryptoService } from '../utils/cryptoService';
 
 const CryptoDemo: React.FC = () => {
   const [passphrase, setPassphrase] = useState('');
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [encryptionResult, setEncryptionResult] = useState<any>(null);
   const [validationResult, setValidationResult] = useState<any>(null);
 
   const {
     isVMKInitialized,
-    isEncrypting,
-    encryptionProgress,
+    
     error,
     initializeVMK,
     restoreVMK,
     clearVMK,
-    encryptFile,
     validatePassphrase,
     getVMKSalt,
     getEncryptionInfo
@@ -79,39 +75,14 @@ const CryptoDemo: React.FC = () => {
     setValidationResult(result);
   };
 
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      setSelectedFile(file);
-    }
-  };
-
-  const handleEncryptFile = async () => {
-    if (!selectedFile) {
-      alert('Please select a file');
-      return;
-    }
-
-    if (!isVMKInitialized) {
-      alert('Please initialize VMK first');
-      return;
-    }
-
-    try {
-      const result = await encryptFile(selectedFile);
-      setEncryptionResult(result);
-      alert('File encrypted successfully!');
-    } catch (error) {
-      alert(`Error: ${error}`);
-    }
-  };
+  
 
   const encryptionInfo = getEncryptionInfo();
   const vmkSalt = getVMKSalt();
 
   return (
     <div className="max-w-4xl mx-auto p-6 space-y-6">
-      <h1 className="text-3xl font-bold text-gray-900">Crypto Demo</h1>
+      <h1 className="text-3xl font-bold text-gray-900">Encryption</h1>
       
       {/* VMK Status */}
       <div className="bg-white rounded-lg shadow p-6">
@@ -215,7 +186,7 @@ const CryptoDemo: React.FC = () => {
         <div className="bg-white rounded-lg shadow p-6">
           <h2 className="text-xl font-semibold mb-4">Passphrase Validation</h2>
           <div className="space-y-2">
-            <p>Score: <span className="font-mono">{validationResult.score}/6</span></p>
+            <p>Score: <span className="font-mono">{validationResult.score}/100</span></p>
             <p>Valid: <span className={validationResult.isValid ? 'text-green-600' : 'text-red-600'}>
               {validationResult.isValid ? 'Yes' : 'No'}
             </span></p>
@@ -233,52 +204,7 @@ const CryptoDemo: React.FC = () => {
         </div>
       )}
 
-      {/* File Encryption */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-xl font-semibold mb-4">File Encryption</h2>
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Select File
-            </label>
-            <input
-              type="file"
-              onChange={handleFileSelect}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-          {selectedFile && (
-            <div className="text-sm text-gray-600">
-              <p>File: {selectedFile.name}</p>
-              <p>Size: {(selectedFile.size / 1024).toFixed(2)} KB</p>
-              <p>Type: {selectedFile.type}</p>
-            </div>
-          )}
-          <button
-            onClick={handleEncryptFile}
-            disabled={!selectedFile || !isVMKInitialized || isEncrypting}
-            className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 disabled:bg-gray-400"
-          >
-            {isEncrypting ? `Encrypting... ${encryptionProgress.toFixed(0)}%` : 'Encrypt File'}
-          </button>
-        </div>
-      </div>
-
-      {/* Encryption Results */}
-      {encryptionResult && (
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-xl font-semibold mb-4">Encryption Results</h2>
-          <div className="space-y-2 text-sm">
-            <p>CEK ID: <code className="bg-gray-100 px-2 py-1 rounded">{encryptionResult.cekId}</code></p>
-            <p>Checksum: <code className="bg-gray-100 px-2 py-1 rounded">{encryptionResult.checksum}</code></p>
-            <p>Encrypted File Size: {(encryptionResult.encryptedData.ciphertext.byteLength / 1024).toFixed(2)} KB</p>
-            <p>Encrypted CEK Size: {(encryptionResult.encryptedCek.ciphertext.byteLength / 1024).toFixed(2)} KB</p>
-            <p>IV: <code className="bg-gray-100 px-2 py-1 rounded">
-              {Array.from(encryptionResult.encryptedData.iv).map((b: unknown) => (b as number).toString(16).padStart(2, '0')).join('')}
-            </code></p>
-          </div>
-        </div>
-      )}
+      
 
       {/* Encryption Info */}
       <div className="bg-white rounded-lg shadow p-6">
