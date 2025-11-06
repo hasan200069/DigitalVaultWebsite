@@ -9,6 +9,7 @@ import { inheritanceRouter } from './inheritance-service';
 import { auditRoutes } from './audit-service';
 import { notificationRoutes } from './notification-service';
 import { ocrRoutes } from './ocr-service';
+import { folderRoutes } from './folder-service';
 
 // Load environment variables
 dotenv.config();
@@ -53,6 +54,9 @@ app.use('/notifications', notificationRoutes);
 
 // OCR routes
 app.use('/ocr', ocrRoutes);
+
+// Folder routes
+app.use('/folders', folderRoutes);
 
 // Error handling middleware
 app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {

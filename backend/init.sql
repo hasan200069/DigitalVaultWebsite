@@ -307,6 +307,24 @@ CREATE INDEX IF NOT EXISTS idx_auto_tags_category ON auto_tags(category);
 CREATE INDEX IF NOT EXISTS idx_redaction_suggestions_item_id ON redaction_suggestions(item_id);
 CREATE INDEX IF NOT EXISTS idx_redaction_suggestions_type ON redaction_suggestions(type);
 
+-- Create folders table for user-created folders within taxonomies
+CREATE TABLE IF NOT EXISTS folders (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    taxonomy_id VARCHAR(50) NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(user_id, tenant_id, taxonomy_id, name)
+);
+
+-- Create indexes for folders table
+CREATE INDEX IF NOT EXISTS idx_folders_user_id ON folders(user_id);
+CREATE INDEX IF NOT EXISTS idx_folders_tenant_id ON folders(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_folders_taxonomy_id ON folders(taxonomy_id);
+CREATE INDEX IF NOT EXISTS idx_folders_user_taxonomy ON folders(user_id, tenant_id, taxonomy_id);
+
 -- Insert a default admin user (password: admin123)
 INSERT INTO users (tenant_id, email, password_hash, first_name, last_name, is_admin) 
 SELECT 

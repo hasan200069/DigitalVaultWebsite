@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import { XMarkIcon, CloudArrowUpIcon, DocumentIcon, ShieldCheckIcon, EyeIcon } from '@heroicons/react/24/outline';
 import { useCrypto } from '../utils/useCrypto';
 import { vaultApiService } from '../services/vaultApi';
+import { folderApiService, type Folder } from '../services/folderApi';
 import { ocrApiService } from '../services/ocrApi';
 import { clientOCRService, type ClientOCRResponse } from '../services/clientOCRService';
 import TagChips from './OCR/TagChips';
@@ -67,6 +68,8 @@ const UploadModal: React.FC<UploadModalProps> = ({
   const [itemName, setItemName] = useState('');
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState('');
+  const [selectedTaxonomy, setSelectedTaxonomy] = useState<string>('');
+  const [selectedFolder, setSelectedFolder] = useState<string>('');
   const [tags, setTags] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(null);
@@ -77,6 +80,7 @@ const UploadModal: React.FC<UploadModalProps> = ({
   const [autoTags, setAutoTags] = useState<any[]>([]);
   const [redactionSuggestions, setRedactionSuggestions] = useState<any[]>([]);
   const [showOCRResults, setShowOCRResults] = useState(false);
+  const [userCreatedFolders, setUserCreatedFolders] = useState<Folder[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { isVMKInitialized, encryptFile, restoreVMK } = useCrypto();
@@ -101,16 +105,47 @@ const UploadModal: React.FC<UploadModalProps> = ({
     'Church/Mosque documents'
   ];
 
-  const categories = [
-    { value: '', label: 'Select a category...' },
-    { value: 'documents', label: 'Documents' },
-    { value: 'images', label: 'Images' },
-    { value: 'videos', label: 'Videos' },
-    { value: 'audio', label: 'Audio' },
-    { value: 'archives', label: 'Archives' },
-    { value: 'other', label: 'Other' },
-    ...documentCategories.map(cat => ({ value: cat.toLowerCase().replace(/\s+/g, '-'), label: cat }))
+  // Taxonomy categories grouping folders
+  const taxonomyCategories = [
+    { id: 'legal', name: 'Legal Documents', folders: ['Court Documents', 'Wills', 'Digital will'] },
+    { id: 'financial', name: 'Financial Documents', folders: ['Financial documents', 'Cryptocurrencies and NFTs'] },
+    { id: 'real-estate', name: 'Real Estate Documents', folders: ['Real estate documents', 'Title deeds'] },
+    { id: 'insurance', name: 'Insurance Documents', folders: ['Life Insurance documents'] },
+    { id: 'personal', name: 'Personal Documents', folders: ['Private sensitive documents', 'Important documents', 'Car Documents'] },
+    { id: 'business', name: 'Business Documents', folders: ['Business documents'] },
+    { id: 'educational', name: 'Educational Documents', folders: ['School certificates'] },
+    { id: 'ceremonial', name: 'Ceremonial Documents', folders: ['Marriage certificates', 'Church/Mosque documents', 'End-of-life planning'] }
   ];
+
+  // Load user-created folders when taxonomy is selected
+  React.useEffect(() => {
+    const loadFolders = async () => {
+      if (selectedTaxonomy) {
+        try {
+          const response = await folderApiService.listFolders(selectedTaxonomy);
+          if (response.success && response.folders) {
+            setUserCreatedFolders(response.folders);
+          }
+        } catch (error) {
+          console.error('Error loading folders:', error);
+          setUserCreatedFolders([]);
+        }
+      } else {
+        setUserCreatedFolders([]);
+      }
+    };
+    loadFolders();
+  }, [selectedTaxonomy]);
+
+  const folderOptions = (() => {
+    const tax = taxonomyCategories.find(t => t.id === selectedTaxonomy);
+    if (!tax) return [];
+    
+    // Combine default folders with user-created folders
+    const defaultFolders = tax.folders;
+    const userFolderNames = userCreatedFolders.map(f => f.name);
+    return [...defaultFolders, ...userFolderNames];
+  })();
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -564,23 +599,49 @@ const UploadModal: React.FC<UploadModalProps> = ({
                 disabled={isUploading}
               />
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Category
-              </label>
-              <select
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                disabled={isUploading}
-              >
-                <option value="">Select category</option>
-                {categories.map(cat => (
-                  <option key={cat.value} value={cat.value}>
-                    {cat.label}
-                  </option>
-                ))}
-              </select>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Taxonomy
+                </label>
+                <select
+                  value={selectedTaxonomy}
+                  onChange={(e) => {
+                    setSelectedTaxonomy(e.target.value);
+                    setSelectedFolder('');
+                    setCategory('');
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  disabled={isUploading}
+                >
+                  <option value="">Select taxonomy</option>
+                  {taxonomyCategories.map(t => (
+                    <option key={t.id} value={t.id}>{t.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Folder
+                </label>
+                <select
+                  value={selectedFolder}
+                  onChange={(e) => {
+                    const folder = e.target.value;
+                    setSelectedFolder(folder);
+                    // store slug in category; backend expects friendly name via mapping below
+                    const slug = folder ? folder.toLowerCase().replace(/\s+/g, '-') : '';
+                    setCategory(slug);
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  disabled={isUploading || !selectedTaxonomy}
+                >
+                  <option value="">Select folder</option>
+                  {folderOptions.map(f => (
+                    <option key={f} value={f}>{f}</option>
+                  ))}
+                </select>
+              </div>
             </div>
           </div>
 

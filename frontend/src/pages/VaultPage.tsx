@@ -10,12 +10,21 @@ import {
   FolderIcon,
   ChevronDownIcon,
   ChevronRightIcon,
-  EllipsisVerticalIcon
+  EllipsisVerticalIcon,
+  ScaleIcon,
+  CurrencyDollarIcon,
+  UserIcon,
+  HomeIcon,
+  BriefcaseIcon,
+  AcademicCapIcon,
+  HeartIcon,
+  PlusIcon
 } from '@heroicons/react/24/outline';
 import UploadModal from '../components/UploadModal';
 import SecureReveal from '../components/SecureReveal';
 import FilePreview from '../components/FilePreview';
 import { vaultApiService, type VaultItem } from '../services/vaultApi';
+import { folderApiService, type Folder } from '../services/folderApi';
 import { useCrypto } from '../utils/useCrypto';
 import { cryptoService } from '../utils/cryptoService';
 
@@ -40,29 +49,86 @@ const VaultPage: React.FC = () => {
 
   const { isVMKInitialized, downloadAndDecryptFile, isDecrypting, restoreVMK } = useCrypto();
 
-  // Document Categories as per dashboard - these act as folders
-  const documentCategories = [
-    'Court Documents',
-    'Wills',
-    'Real estate documents',
-    'Title deeds',
-    'Life Insurance documents',
-    'Cryptocurrencies and NFTs',
-    'Car Documents',
-    'Private sensitive documents',
-    'Business documents',
-    'Digital will',
-    'Important documents',
-    'School certificates',
-    'Financial documents',
-    'End-of-life planning',
-    'Marriage certificates',
-    'Church/Mosque documents'
+  // Taxonomy Categories with icons - main categories that contain folders
+  interface TaxonomyCategory {
+    id: string;
+    name: string;
+    icon: React.ComponentType<{ className?: string }>;
+    color: string;
+    folders: string[];
+  }
+
+  const taxonomyCategories: TaxonomyCategory[] = [
+    {
+      id: 'legal',
+      name: 'Legal Documents',
+      icon: ScaleIcon,
+      color: 'text-blue-600 bg-blue-100',
+      folders: ['Court Documents', 'Wills', 'Digital will']
+    },
+    {
+      id: 'financial',
+      name: 'Financial Documents',
+      icon: CurrencyDollarIcon,
+      color: 'text-green-600 bg-green-100',
+      folders: ['Financial documents', 'Cryptocurrencies and NFTs']
+    },
+    {
+      id: 'real-estate',
+      name: 'Real Estate Documents',
+      icon: HomeIcon,
+      color: 'text-purple-600 bg-purple-100',
+      folders: ['Real estate documents', 'Title deeds']
+    },
+    {
+      id: 'insurance',
+      name: 'Insurance Documents',
+      icon: ShieldCheckIcon,
+      color: 'text-cyan-600 bg-cyan-100',
+      folders: ['Life Insurance documents']
+    },
+    {
+      id: 'personal',
+      name: 'Personal Documents',
+      icon: UserIcon,
+      color: 'text-pink-600 bg-pink-100',
+      folders: ['Private sensitive documents', 'Important documents', 'Car Documents']
+    },
+    {
+      id: 'business',
+      name: 'Business Documents',
+      icon: BriefcaseIcon,
+      color: 'text-orange-600 bg-orange-100',
+      folders: ['Business documents']
+    },
+    {
+      id: 'educational',
+      name: 'Educational Documents',
+      icon: AcademicCapIcon,
+      color: 'text-indigo-600 bg-indigo-100',
+      folders: ['School certificates']
+    },
+    {
+      id: 'ceremonial',
+      name: 'Ceremonial Documents',
+      icon: HeartIcon,
+      color: 'text-red-600 bg-red-100',
+      folders: ['Marriage certificates', 'Church/Mosque documents', 'End-of-life planning']
+    }
   ];
+
+  // Get all folders from taxonomy categories
+  const documentCategories = taxonomyCategories.flatMap(cat => cat.folders);
 
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [selectedFolder, setSelectedFolder] = useState<string>('');
   const [folderViewMode, setFolderViewMode] = useState<'folders' | 'flat'>('folders');
+  const [selectedTaxonomyCategory, setSelectedTaxonomyCategory] = useState<string | null>(null);
+  const [userCreatedFolders, setUserCreatedFolders] = useState<Folder[]>([]);
+  const [allUserFolders, setAllUserFolders] = useState<Folder[]>([]); // All folders across all taxonomies
+  const [isCreateFolderModalOpen, setIsCreateFolderModalOpen] = useState(false);
+  const [newFolderName, setNewFolderName] = useState('');
+  const [isCreatingFolder, setIsCreatingFolder] = useState(false);
 
   const categories = [
     { value: '', label: 'All Categories' },
@@ -121,6 +187,40 @@ const VaultPage: React.FC = () => {
   useEffect(() => {
     loadItems();
   }, [selectedCategory]);
+
+  // Load all user-created folders on component mount
+  useEffect(() => {
+    const loadAllFolders = async () => {
+      try {
+        const response = await folderApiService.listFolders(); // Get all folders
+        if (response.success && response.folders) {
+          setAllUserFolders(response.folders);
+        }
+      } catch (error) {
+        console.error('Error loading all folders:', error);
+      }
+    };
+    loadAllFolders();
+  }, []); // Load once on mount
+
+  // Load user-created folders for selected taxonomy
+  useEffect(() => {
+    const loadFolders = async () => {
+      if (selectedTaxonomyCategory) {
+        try {
+          const response = await folderApiService.listFolders(selectedTaxonomyCategory);
+          if (response.success && response.folders) {
+            setUserCreatedFolders(response.folders);
+          }
+        } catch (error) {
+          console.error('Error loading folders:', error);
+        }
+      } else {
+        setUserCreatedFolders([]);
+      }
+    };
+    loadFolders();
+  }, [selectedTaxonomyCategory]);
 
   // Listen for VMK state changes to update the component
   useEffect(() => {
@@ -380,6 +480,47 @@ const VaultPage: React.FC = () => {
     loadItems(); // Refresh the list
   };
 
+  // Handle creating a new folder
+  const handleCreateFolder = async () => {
+    if (!newFolderName.trim() || !selectedTaxonomyCategory) {
+      setError('Please enter a folder name');
+      return;
+    }
+
+    setIsCreatingFolder(true);
+    setError(null);
+
+    try {
+      const response = await folderApiService.createFolder({
+        taxonomyId: selectedTaxonomyCategory,
+        name: newFolderName.trim()
+      });
+
+      if (response.success && response.folder) {
+        // Reload folders for current taxonomy
+        const foldersResponse = await folderApiService.listFolders(selectedTaxonomyCategory);
+        if (foldersResponse.success && foldersResponse.folders) {
+          setUserCreatedFolders(foldersResponse.folders);
+        }
+        // Reload all folders to update counts on taxonomy cards
+        const allFoldersResponse = await folderApiService.listFolders();
+        if (allFoldersResponse.success && allFoldersResponse.folders) {
+          setAllUserFolders(allFoldersResponse.folders);
+        }
+        // Reset form
+        setNewFolderName('');
+        setIsCreateFolderModalOpen(false);
+      } else {
+        setError(response.message || 'Failed to create folder');
+      }
+    } catch (error) {
+      console.error('Create folder error:', error);
+      setError(error instanceof Error ? error.message : 'Failed to create folder');
+    } finally {
+      setIsCreatingFolder(false);
+    }
+  };
+
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     // Filter items based on search query
@@ -440,8 +581,14 @@ const VaultPage: React.FC = () => {
     setSelectedFolderView(null);
   };
 
+  // Get all folder names (default + all user-created folders)
+  const allFolderNames = [
+    ...documentCategories,
+    ...allUserFolders.map(f => f.name)
+  ];
+
   // Group items by category/folder
-  const itemsByFolder = documentCategories.reduce((acc, category) => {
+  const itemsByFolder = allFolderNames.reduce((acc, category) => {
     acc[category] = items.filter(item => 
       item.category?.toLowerCase() === category.toLowerCase()
     );
@@ -450,7 +597,7 @@ const VaultPage: React.FC = () => {
 
   // Get items not in any category
   const uncategorizedItems = items.filter(item => 
-    !documentCategories.some(cat => item.category?.toLowerCase() === cat.toLowerCase())
+    !allFolderNames.some(cat => item.category?.toLowerCase() === cat.toLowerCase())
   );
 
   // Filter items based on search, folder selection, and category
@@ -687,92 +834,215 @@ const VaultPage: React.FC = () => {
             </div>
           ) : folderViewMode === 'folders' ? (
             <div className="p-6">
-              {/* Grid Layout for Folders - 3 per row */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {documentCategories.map((category) => {
-                  const folderItems = itemsByFolder[category];
-                  const itemCount = folderItems.length;
-                  const totalSize = folderItems.reduce((sum, item) => sum + (item.fileSize || 0), 0);
-                  
-                  return (
-                    <div 
-                      key={category} 
-                      className="bg-gray-50 border border-gray-200 rounded-xl p-6 hover:shadow-lg transition-shadow cursor-pointer relative group"
-                      onClick={() => openFolderView(category)}
-                    >
-                      {/* Folder Icon - Yellow */}
-                      <div className="flex items-center justify-between mb-4">
-                        <FolderIcon className="h-12 w-12 text-yellow-500" />
-                        <button
-                          className="p-2 text-gray-400 hover:text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            // Handle folder menu
-                          }}
+              {selectedTaxonomyCategory === null ? (
+                // Show Taxonomy Categories
+                <div>
+                  <h2 className="text-xl font-semibold text-gray-900 mb-4">Document Categories</h2>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                    {taxonomyCategories.map((taxCategory) => {
+                      // Get user-created folders for this taxonomy
+                      const userFoldersForTaxonomy = allUserFolders.filter(f => f.taxonomyId === taxCategory.id);
+                      const totalFolderCount = taxCategory.folders.length + userFoldersForTaxonomy.length;
+                      
+                      // Calculate total items and size for this category (including user-created folders)
+                      const defaultFolderItems = taxCategory.folders.flatMap(folder => itemsByFolder[folder] || []);
+                      const userFolderNames = userFoldersForTaxonomy.map(f => f.name);
+                      const userFolderItems = userFolderNames.flatMap(folder => itemsByFolder[folder] || []);
+                      const categoryItems = [...defaultFolderItems, ...userFolderItems];
+                      const itemCount = categoryItems.length;
+                      const totalSize = categoryItems.reduce((sum, item) => sum + (item.fileSize || 0), 0);
+                      const IconComponent = taxCategory.icon;
+                      
+                      return (
+                        <div 
+                          key={taxCategory.id} 
+                          className="bg-white border-2 border-gray-200 rounded-xl p-6 hover:shadow-lg hover:border-gray-300 transition-all cursor-pointer relative group"
+                          onClick={() => setSelectedTaxonomyCategory(taxCategory.id)}
                         >
-                          <EllipsisVerticalIcon className="h-5 w-5" />
-                        </button>
-                      </div>
-                      
-                      {/* Folder Name */}
-                      <h3 className="text-base font-semibold text-gray-900 mb-2 line-clamp-2">
-                        {category}
-                      </h3>
-                      
-                      {/* Folder Info */}
-                      <div className="space-y-1">
-                        <p className="text-sm text-gray-500">
-                          {itemCount} {itemCount === 1 ? 'item' : 'items'}
-                        </p>
-                        {totalSize > 0 && (
-                          <p className="text-sm text-gray-500">
-                            {vaultApiService.formatFileSize(totalSize)}
-                          </p>
-                        )}
-                        <p className="text-xs text-gray-400">
-                          {formatDate(new Date().toISOString())}
-                        </p>
-                      </div>
-                      
-                      {/* Folder Content Modal when clicked - Show items in modal/popup */}
-                    </div>
-                  );
-                })}
-                
-                {/* Uncategorized items card */}
-                {uncategorizedItems.length > 0 && (
-                  <div 
-                    className="bg-gray-50 border border-gray-200 rounded-xl p-6 hover:shadow-lg transition-shadow cursor-pointer relative group"
-                    onClick={() => openFolderView('Uncategorized')}
-                  >
-                    <div className="flex items-center justify-between mb-4">
-                      <FolderIcon className="h-12 w-12 text-gray-600" />
-                      <button
-                        className="p-2 text-gray-400 hover:text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          // Handle folder menu
-                        }}
+                          {/* Category Icon with colored background */}
+                          <div className="flex items-center justify-between mb-4">
+                            <div className={`w-14 h-14 ${taxCategory.color} rounded-xl flex items-center justify-center`}>
+                              <IconComponent className="h-8 w-8" />
+                            </div>
+                            <button
+                              className="p-2 text-gray-400 hover:text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                // Handle category menu
+                              }}
+                            >
+                              <EllipsisVerticalIcon className="h-5 w-5" />
+                            </button>
+                          </div>
+                          
+                          {/* Category Name */}
+                          <h3 className="text-lg font-semibold text-gray-900 mb-2 line-clamp-2">
+                            {taxCategory.name}
+                          </h3>
+                          
+                          {/* Category Info */}
+                          <div className="space-y-1">
+                            <p className="text-sm text-gray-600">
+                              {totalFolderCount} {totalFolderCount === 1 ? 'folder' : 'folders'}
+                            </p>
+                            <p className="text-sm text-gray-500">
+                              {itemCount} {itemCount === 1 ? 'item' : 'items'}
+                            </p>
+                            {totalSize > 0 && (
+                              <p className="text-sm text-gray-500">
+                                {vaultApiService.formatFileSize(totalSize)}
+                              </p>
+                            )}
+                          </div>
+                          
+                          {/* Chevron indicator */}
+                          <div className="mt-3 flex items-center text-sm text-gray-400">
+                            <span>View folders</span>
+                            <ChevronRightIcon className="h-4 w-4 ml-1" />
+                          </div>
+                        </div>
+                      );
+                    })}
+                    
+                    {/* Uncategorized items card */}
+                    {uncategorizedItems.length > 0 && (
+                      <div 
+                        className="bg-white border-2 border-gray-200 rounded-xl p-6 hover:shadow-lg hover:border-gray-300 transition-all cursor-pointer relative group"
+                        onClick={() => openFolderView('Uncategorized')}
                       >
-                        <EllipsisVerticalIcon className="h-5 w-5" />
-                      </button>
-                    </div>
-                    
-                    <h3 className="text-base font-semibold text-gray-900 mb-2">
-                      Uncategorized
-                    </h3>
-                    
-                    <div className="space-y-1">
-                      <p className="text-sm text-gray-500">
-                        {uncategorizedItems.length} {uncategorizedItems.length === 1 ? 'item' : 'items'}
-                      </p>
-                      <p className="text-xs text-gray-400">
-                        {formatDate(new Date().toISOString())}
-                      </p>
+                        <div className="flex items-center justify-between mb-4">
+                          <div className="w-14 h-14 bg-gray-100 rounded-xl flex items-center justify-center">
+                            <FolderIcon className="h-8 w-8 text-gray-600" />
+                          </div>
+                          <button
+                            className="p-2 text-gray-400 hover:text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              // Handle folder menu
+                            }}
+                          >
+                            <EllipsisVerticalIcon className="h-5 w-5" />
+                          </button>
+                        </div>
+                        
+                        <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                          Uncategorized
+                        </h3>
+                        
+                        <div className="space-y-1">
+                          <p className="text-sm text-gray-500">
+                            {uncategorizedItems.length} {uncategorizedItems.length === 1 ? 'item' : 'items'}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                // Show Folders within selected Taxonomy Category
+                <div>
+                  <div className="mb-4 flex items-center">
+                    <button
+                      onClick={() => setSelectedTaxonomyCategory(null)}
+                      className="mr-3 p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                      title="Back to categories"
+                    >
+                      <ChevronDownIcon className="h-5 w-5 rotate-90" />
+                    </button>
+                    <div className="flex items-center space-x-3">
+                      {(() => {
+                        const taxCategory = taxonomyCategories.find(c => c.id === selectedTaxonomyCategory);
+                        if (!taxCategory) return null;
+                        const IconComponent = taxCategory.icon;
+                        return (
+                          <>
+                            <div className={`w-10 h-10 ${taxCategory.color} rounded-lg flex items-center justify-center`}>
+                              <IconComponent className="h-6 w-6" />
+                            </div>
+                            <h2 className="text-xl font-semibold text-gray-900">{taxCategory.name}</h2>
+                          </>
+                        );
+                      })()}
                     </div>
                   </div>
-                )}
-              </div>
+                  
+                  <div className="mb-4 flex items-center justify-between">
+                    <div></div>
+                    <button
+                      onClick={() => setIsCreateFolderModalOpen(true)}
+                      className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                    >
+                      <PlusIcon className="h-4 w-4 mr-2" />
+                      Create New Folder
+                    </button>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {(() => {
+                      const taxCategory = taxonomyCategories.find(c => c.id === selectedTaxonomyCategory);
+                      if (!taxCategory) return null;
+                      
+                      // Combine default folders with user-created folders
+                      const defaultFolders = taxCategory.folders;
+                      const userFolderNames = userCreatedFolders.map(f => f.name);
+                      const allFolders = [...defaultFolders, ...userFolderNames];
+                      
+                      return allFolders.map((folder) => {
+                        const folderItems = itemsByFolder[folder] || [];
+                        const itemCount = folderItems.length;
+                        const totalSize = folderItems.reduce((sum, item) => sum + (item.fileSize || 0), 0);
+                        const isUserCreated = userCreatedFolders.some(f => f.name === folder);
+                        
+                        return (
+                          <div 
+                            key={folder} 
+                            className="bg-gray-50 border border-gray-200 rounded-xl p-6 hover:shadow-lg transition-shadow cursor-pointer relative group"
+                            onClick={() => openFolderView(folder)}
+                          >
+                            {/* Folder Icon - Yellow */}
+                            <div className="flex items-center justify-between mb-4">
+                              <FolderIcon className="h-12 w-12 text-yellow-500" />
+                              <button
+                                className="p-2 text-gray-400 hover:text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  // Handle folder menu
+                                }}
+                              >
+                                <EllipsisVerticalIcon className="h-5 w-5" />
+                              </button>
+                            </div>
+                            
+                            {/* Folder Name */}
+                            <div className="flex items-center space-x-2 mb-2">
+                              <h3 className="text-base font-semibold text-gray-900 line-clamp-2 flex-1">
+                                {folder}
+                              </h3>
+                              {isUserCreated && (
+                                <span className="text-xs px-2 py-1 bg-blue-100 text-blue-800 rounded-full">
+                                  Custom
+                                </span>
+                              )}
+                            </div>
+                            
+                            {/* Folder Info */}
+                            <div className="space-y-1">
+                              <p className="text-sm text-gray-500">
+                                {itemCount} {itemCount === 1 ? 'item' : 'items'}
+                              </p>
+                              {totalSize > 0 && (
+                                <p className="text-sm text-gray-500">
+                                  {vaultApiService.formatFileSize(totalSize)}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      });
+                    })()}
+                  </div>
+                </div>
+              )}
             </div>
           ) : viewMode === 'grid' ? (
             <div className="p-6">
@@ -960,13 +1230,42 @@ const VaultPage: React.FC = () => {
           <div className="bg-white rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] flex flex-col">
             {/* Modal Header */}
             <div className="flex items-center justify-between p-6 border-b border-gray-200">
-              <div className="flex items-center space-x-3">
-                <FolderIcon className="h-8 w-8 text-yellow-500" />
-                <h2 className="text-2xl font-bold text-gray-900">{selectedFolderView}</h2>
+              <div className="flex items-center space-x-3 flex-1 min-w-0">
+                {(() => {
+                  // Find which taxonomy category contains this folder
+                  const taxCategory = taxonomyCategories.find(cat => 
+                    cat.folders.some(f => f === selectedFolderView)
+                  );
+                  
+                  if (taxCategory && selectedFolderView !== 'Uncategorized') {
+                    const IconComponent = taxCategory.icon;
+                    return (
+                      <>
+                        <div className={`w-10 h-10 ${taxCategory.color} rounded-lg flex items-center justify-center flex-shrink-0`}>
+                          <IconComponent className="h-6 w-6" />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-xs text-gray-500 mb-1">{taxCategory.name}</div>
+                          <div className="flex items-center space-x-2">
+                            <FolderIcon className="h-6 w-6 text-yellow-500 flex-shrink-0" />
+                            <h2 className="text-2xl font-bold text-gray-900 truncate">{selectedFolderView}</h2>
+                          </div>
+                        </div>
+                      </>
+                    );
+                  }
+                  
+                  return (
+                    <>
+                      <FolderIcon className="h-8 w-8 text-yellow-500 flex-shrink-0" />
+                      <h2 className="text-2xl font-bold text-gray-900 truncate">{selectedFolderView}</h2>
+                    </>
+                  );
+                })()}
               </div>
               <button
                 onClick={closeFolderView}
-                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors ml-4 flex-shrink-0"
               >
                 <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1035,6 +1334,68 @@ const VaultPage: React.FC = () => {
                   </div>
                 )
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Create Folder Modal */}
+      {isCreateFolderModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              Create New Folder
+            </h3>
+            <p className="text-sm text-gray-600 mb-4">
+              {selectedTaxonomyCategory && (
+                <>Create a new folder in <strong>{taxonomyCategories.find(c => c.id === selectedTaxonomyCategory)?.name}</strong></>
+              )}
+            </p>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Folder Name *
+                </label>
+                <input
+                  type="text"
+                  value={newFolderName}
+                  onChange={(e) => setNewFolderName(e.target.value)}
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter' && !isCreatingFolder) {
+                      handleCreateFolder();
+                    }
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Enter folder name"
+                  disabled={isCreatingFolder}
+                  autoFocus
+                />
+              </div>
+              {error && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                  <p className="text-sm text-red-600">{error}</p>
+                </div>
+              )}
+              <div className="flex space-x-3">
+                <button
+                  onClick={handleCreateFolder}
+                  disabled={!newFolderName.trim() || isCreatingFolder}
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                >
+                  {isCreatingFolder ? 'Creating...' : 'Create Folder'}
+                </button>
+                <button
+                  onClick={() => {
+                    setIsCreateFolderModalOpen(false);
+                    setNewFolderName('');
+                    setError(null);
+                  }}
+                  disabled={isCreatingFolder}
+                  className="flex-1 px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
           </div>
         </div>
