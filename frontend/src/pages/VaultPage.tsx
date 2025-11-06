@@ -129,6 +129,8 @@ const VaultPage: React.FC = () => {
   const [isCreateFolderModalOpen, setIsCreateFolderModalOpen] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
   const [isCreatingFolder, setIsCreatingFolder] = useState(false);
+  const [folderToDelete, setFolderToDelete] = useState<{ name: string; id?: string; isUserCreated: boolean } | null>(null);
+  const [isDeletingFolder, setIsDeletingFolder] = useState(false);
 
   const categories = [
     { value: '', label: 'All Categories' },
@@ -518,6 +520,52 @@ const VaultPage: React.FC = () => {
       setError(error instanceof Error ? error.message : 'Failed to create folder');
     } finally {
       setIsCreatingFolder(false);
+    }
+  };
+
+  // Handle deleting a folder
+  const handleDeleteFolder = async () => {
+    if (!folderToDelete) return;
+
+    setIsDeletingFolder(true);
+    setError(null);
+
+    try {
+      if (folderToDelete.isUserCreated && folderToDelete.id) {
+        // Delete user-created folder (this will also delete items in the folder)
+        const response = await folderApiService.deleteFolder(folderToDelete.id);
+        if (response.success) {
+          // Reload folders and items
+          if (selectedTaxonomyCategory) {
+            const foldersResponse = await folderApiService.listFolders(selectedTaxonomyCategory);
+            if (foldersResponse.success && foldersResponse.folders) {
+              setUserCreatedFolders(foldersResponse.folders);
+            }
+          }
+          const allFoldersResponse = await folderApiService.listFolders();
+          if (allFoldersResponse.success && allFoldersResponse.folders) {
+            setAllUserFolders(allFoldersResponse.folders);
+          }
+          await loadItems(); // Reload items to reflect deletions
+          setFolderToDelete(null);
+        } else {
+          setError(response.message || 'Failed to delete folder');
+        }
+      } else {
+        // Delete default folder (delete all items with that category)
+        const response = await vaultApiService.deleteItemsByCategory(folderToDelete.name);
+        if (response.success) {
+          await loadItems(); // Reload items to reflect deletions
+          setFolderToDelete(null);
+        } else {
+          setError(response.message || 'Failed to delete folder');
+        }
+      }
+    } catch (error) {
+      console.error('Delete folder error:', error);
+      setError(error instanceof Error ? error.message : 'Failed to delete folder');
+    } finally {
+      setIsDeletingFolder(false);
     }
   };
 
@@ -1003,13 +1051,19 @@ const VaultPage: React.FC = () => {
                             <div className="flex items-center justify-between mb-4">
                               <FolderIcon className="h-12 w-12 text-yellow-500" />
                               <button
-                                className="p-2 text-gray-400 hover:text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                                className="p-2 text-gray-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  // Handle folder menu
+                                  const userFolder = userCreatedFolders.find(f => f.name === folder);
+                                  setFolderToDelete({
+                                    name: folder,
+                                    id: userFolder?.id,
+                                    isUserCreated: isUserCreated
+                                  });
                                 }}
+                                title="Delete folder"
                               >
-                                <EllipsisVerticalIcon className="h-5 w-5" />
+                                <TrashIcon className="h-5 w-5" />
                               </button>
                             </div>
                             
@@ -1396,6 +1450,47 @@ const VaultPage: React.FC = () => {
                   Cancel
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Folder Confirmation Modal */}
+      {folderToDelete && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              Delete Folder
+            </h3>
+            <p className="text-gray-600 mb-4">
+              Are you sure you want to delete the folder <strong>"{folderToDelete.name}"</strong>?
+            </p>
+            <p className="text-sm text-red-600 mb-4">
+              ⚠️ This will permanently delete the folder and all files inside it. This action cannot be undone.
+            </p>
+            {error && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+                <p className="text-sm text-red-600">{error}</p>
+              </div>
+            )}
+            <div className="flex space-x-3">
+              <button
+                onClick={handleDeleteFolder}
+                disabled={isDeletingFolder}
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+              >
+                {isDeletingFolder ? 'Deleting...' : 'Delete Folder'}
+              </button>
+              <button
+                onClick={() => {
+                  setFolderToDelete(null);
+                  setError(null);
+                }}
+                disabled={isDeletingFolder}
+                className="flex-1 px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 disabled:opacity-50"
+              >
+                Cancel
+              </button>
             </div>
           </div>
         </div>

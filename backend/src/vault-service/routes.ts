@@ -7,6 +7,7 @@ import {
   downloadFile,
   listItems,
   deleteItem,
+  deleteItemsByCategory,
   getStats,
   searchItems,
   getSecureViewer
@@ -23,6 +24,7 @@ router.post('/items', createItem);
 router.get('/items', listItems);
 router.get('/items/:id', getItem);
 router.delete('/items/:id', deleteItem);
+router.delete('/items/by-category/:category', deleteItemsByCategory);
 router.post('/items/:id/versions', createVersion);
 router.get('/items/:id/versions/:version/download', getDownloadUrl);
 router.get('/items/:id/versions/:version/download-file', downloadFile);

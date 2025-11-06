@@ -356,14 +356,48 @@ export const deleteFolder = async (req: Request, res: Response): Promise<void> =
     }
 
     const folder = existingFolder.rows[0];
+    const folderName = folder.name;
 
-    // Delete folder
+    // First, delete all items in this folder (soft delete by marking as inactive)
+    const itemsInFolder = await query(
+      `SELECT id, name FROM vault_items 
+       WHERE user_id = $1 AND tenant_id = $2 AND category = $3 AND is_active = true`,
+      [userId, tenantId, folderName]
+    );
+
+    let deletedItemsCount = 0;
+    for (const item of itemsInFolder.rows) {
+      // Soft delete each item
+      await query(
+        'UPDATE vault_items SET is_active = false, updated_at = CURRENT_TIMESTAMP WHERE id = $1',
+        [item.id]
+      );
+
+      // Log audit event for each deleted item
+      await logAuditEvent(
+        tenantId,
+        userId,
+        AuditAction.VAULT_ITEM_DELETED,
+        ResourceType.VAULT_ITEM,
+        item.id,
+        {
+          itemName: item.name,
+          deletedFromFolder: folderName,
+          folderDeleted: true
+        },
+        item.id,
+        req
+      );
+      deletedItemsCount++;
+    }
+
+    // Now delete the folder record
     await query(
       `DELETE FROM folders WHERE id = $1 AND user_id = $2 AND tenant_id = $3`,
       [folderId, userId, tenantId]
     );
 
-    // Log audit event
+    // Log audit event for folder deletion
     await logAuditEvent(
       tenantId,
       userId,
@@ -372,7 +406,8 @@ export const deleteFolder = async (req: Request, res: Response): Promise<void> =
       folderId,
       {
         folderName: folder.name,
-        taxonomyId: folder.taxonomy_key || folder.taxonomy_id
+        taxonomyId: folder.taxonomy_key || folder.taxonomy_id,
+        itemsDeleted: deletedItemsCount
       },
       folderId,
       req
@@ -380,7 +415,8 @@ export const deleteFolder = async (req: Request, res: Response): Promise<void> =
 
     res.status(200).json({
       success: true,
-      message: 'Folder deleted successfully'
+      message: `Folder deleted successfully. ${deletedItemsCount} item(s) were also deleted.`,
+      itemsDeleted: deletedItemsCount
     } as DeleteFolderResponse);
 
   } catch (error) {

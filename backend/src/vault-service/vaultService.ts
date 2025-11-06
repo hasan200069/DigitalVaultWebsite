@@ -598,6 +598,97 @@ export const deleteItem = async (req: Request, res: Response): Promise<void> => 
   }
 };
 
+// Delete all items by category (for default folders)
+export const deleteItemsByCategory = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const userId = (req as any).user?.id;
+    const { category } = req.params;
+
+    if (!userId) {
+      res.status(401).json({
+        success: false,
+        message: 'User not authenticated'
+      });
+      return;
+    }
+
+    if (!category) {
+      res.status(400).json({
+        success: false,
+        message: 'Category is required'
+      });
+      return;
+    }
+
+    // Get default tenant
+    const defaultTenant = await query(
+      'SELECT id FROM tenants WHERE domain = $1',
+      ['default']
+    );
+
+    if (defaultTenant.rows.length === 0) {
+      res.status(500).json({
+        success: false,
+        message: 'Default tenant not found'
+      });
+      return;
+    }
+
+    const tenantId = defaultTenant.rows[0].id;
+
+    // Get all items in this category
+    const itemsResult = await query(
+      `SELECT id, name, file_size, mime_type, is_encrypted, tags FROM vault_items 
+       WHERE user_id = $1 AND tenant_id = $2 AND category = $3 AND is_active = true`,
+      [userId, tenantId, category]
+    );
+
+    let deletedItemsCount = 0;
+    for (const item of itemsResult.rows) {
+      // Soft delete each item
+      await query(
+        'UPDATE vault_items SET is_active = false, updated_at = CURRENT_TIMESTAMP WHERE id = $1',
+        [item.id]
+      );
+
+      // Log audit event for each deleted item
+      await logAuditEvent(
+        tenantId,
+        userId,
+        AuditAction.VAULT_ITEM_DELETED,
+        ResourceType.VAULT_ITEM,
+        item.id,
+        {
+          itemName: item.name,
+          itemSize: item.file_size,
+          itemType: item.mime_type,
+          isEncrypted: item.is_encrypted,
+          category: item.category || category,
+          tags: item.tags,
+          deletedFromFolder: category,
+          folderDeleted: true
+        },
+        item.id,
+        req
+      );
+      deletedItemsCount++;
+    }
+
+    res.json({
+      success: true,
+      message: `Deleted ${deletedItemsCount} item(s) from category "${category}"`,
+      itemsDeleted: deletedItemsCount
+    });
+
+  } catch (error) {
+    console.error('Delete items by category error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+};
+
 // List user's vault items
 export const listItems = async (req: Request, res: Response): Promise<void> => {
   try {

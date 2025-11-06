@@ -288,6 +288,13 @@ class VaultApiService {
     });
   }
 
+  // Delete all items by category (for default folders)
+  async deleteItemsByCategory(category: string): Promise<{ success: boolean; message: string; itemsDeleted?: number }> {
+    return this.request<{ success: boolean; message: string; itemsDeleted?: number }>(`/vault/items/by-category/${encodeURIComponent(category)}`, {
+      method: 'DELETE',
+    });
+  }
+
   // Format file size for display
   formatFileSize(bytes: number): string {
     if (bytes === 0) return '0 Bytes';
