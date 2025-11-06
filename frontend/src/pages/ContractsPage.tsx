@@ -15,9 +15,26 @@ import {
   ArrowPathIcon,
   PencilSquareIcon,
   EyeIcon,
-  TrashIcon
+  TrashIcon,
+  FolderIcon,
+  ChevronDownIcon,
+  ChevronRightIcon,
+  HomeIcon,
+  BriefcaseIcon,
+  BanknotesIcon,
+  BuildingOfficeIcon,
+  WrenchScrewdriverIcon,
+  BuildingLibraryIcon,
+  ScaleIcon,
+  ChartBarIcon,
+  PhoneIcon,
+  TruckIcon,
+  ShoppingCartIcon,
+  DocumentTextIcon,
+  LinkIcon
 } from '@heroicons/react/24/outline';
 import { vaultApiService, type VaultItem } from '../services/vaultApi';
+import { folderApiService, type Folder } from '../services/folderApi';
 
 interface ContractMetadata {
   id: string;
@@ -34,10 +51,12 @@ interface ContractMetadata {
   signedDocumentId?: string;
   tags: string[];
   notes?: string;
+  category?: string; // Folder/category for organization
 }
 
 const ContractsPage: React.FC = () => {
   const [contracts, setContracts] = useState<ContractMetadata[]>([]);
+  const [allContracts, setAllContracts] = useState<ContractMetadata[]>([]); // All contracts for filtering
   const [vaultItems, setVaultItems] = useState<VaultItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -46,10 +65,162 @@ const ContractsPage: React.FC = () => {
   const [selectedContract, setSelectedContract] = useState<ContractMetadata | null>(null);
   const [showExpiringAlert, setShowExpiringAlert] = useState(true);
 
+  // Folder navigation state
+  const [selectedTaxonomyCategory, setSelectedTaxonomyCategory] = useState<string | null>(null);
+  const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
+  const [userCreatedFolders, setUserCreatedFolders] = useState<Folder[]>([]);
+  const [allUserFolders, setAllUserFolders] = useState<Folder[]>([]);
+  const [isCreateFolderModalOpen, setIsCreateFolderModalOpen] = useState(false);
+  const [newFolderName, setNewFolderName] = useState('');
+  const [isCreatingFolder, setIsCreatingFolder] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Contract Taxonomy Categories
+  interface TaxonomyCategory {
+    id: string;
+    name: string;
+    icon: React.ComponentType<{ className?: string }>;
+    color: string;
+    folders: string[];
+  }
+
+  const taxonomyCategories: TaxonomyCategory[] = [
+    {
+      id: 'real-estate',
+      name: 'Real Estate Contracts',
+      icon: HomeIcon,
+      color: 'text-purple-600 bg-purple-100',
+      folders: []
+    },
+    {
+      id: 'corporate',
+      name: 'Corporate Contracts',
+      icon: BriefcaseIcon,
+      color: 'text-orange-600 bg-orange-100',
+      folders: ['Supply Contracts']
+    },
+    {
+      id: 'accounting',
+      name: 'Accounting',
+      icon: BanknotesIcon,
+      color: 'text-green-600 bg-green-100',
+      folders: []
+    },
+    {
+      id: 'manufacturing',
+      name: 'Manufacturing',
+      icon: WrenchScrewdriverIcon,
+      color: 'text-blue-600 bg-blue-100',
+      folders: []
+    },
+    {
+      id: 'banks',
+      name: 'Banks',
+      icon: BuildingLibraryIcon,
+      color: 'text-indigo-600 bg-indigo-100',
+      folders: []
+    },
+    {
+      id: 'advisory',
+      name: 'Advisory Contracts',
+      icon: ChartBarIcon,
+      color: 'text-cyan-600 bg-cyan-100',
+      folders: []
+    },
+    {
+      id: 'construction',
+      name: 'Construction Contract',
+      icon: BuildingOfficeIcon,
+      color: 'text-yellow-600 bg-yellow-100',
+      folders: []
+    },
+    {
+      id: 'legal',
+      name: 'Legal Contracts',
+      icon: ScaleIcon,
+      color: 'text-red-600 bg-red-100',
+      folders: []
+    },
+    {
+      id: 'financial-managers',
+      name: 'Financial Managers',
+      icon: CurrencyDollarIcon,
+      color: 'text-emerald-600 bg-emerald-100',
+      folders: []
+    },
+    {
+      id: 'wealth-managers',
+      name: 'Wealth Managers',
+      icon: CurrencyDollarIcon,
+      color: 'text-teal-600 bg-teal-100',
+      folders: []
+    },
+    {
+      id: 'telecommunication',
+      name: 'Telecommunication',
+      icon: PhoneIcon,
+      color: 'text-pink-600 bg-pink-100',
+      folders: []
+    },
+    {
+      id: 'car-dealership',
+      name: 'Car Dealership',
+      icon: TruckIcon,
+      color: 'text-gray-600 bg-gray-100',
+      folders: []
+    },
+    {
+      id: 'procurement',
+      name: 'Procurement',
+      icon: ShoppingCartIcon,
+      color: 'text-amber-600 bg-amber-100',
+      folders: []
+    },
+    {
+      id: 'general',
+      name: 'General Contracts',
+      icon: DocumentTextIcon,
+      color: 'text-slate-600 bg-slate-100',
+      folders: []
+    }
+  ];
+
   useEffect(() => {
     loadContracts();
     loadVaultItems();
+    loadAllFolders();
   }, []);
+
+  // Load user-created folders for selected taxonomy
+  useEffect(() => {
+    const loadFolders = async () => {
+      if (selectedTaxonomyCategory) {
+        try {
+          const response = await folderApiService.listFolders(selectedTaxonomyCategory);
+          if (response.success && response.folders) {
+            setUserCreatedFolders(response.folders);
+          }
+        } catch (error) {
+          console.error('Error loading folders:', error);
+        }
+      } else {
+        setUserCreatedFolders([]);
+      }
+    };
+    loadFolders();
+  }, [selectedTaxonomyCategory]);
+
+  // Load all folders on mount
+  const loadAllFolders = async () => {
+    try {
+      const response = await folderApiService.listFolders();
+      if (response.success && response.folders) {
+        setAllUserFolders(response.folders);
+      }
+    } catch (error) {
+      console.error('Error loading all folders:', error);
+    }
+  };
 
   const loadVaultItems = async () => {
     try {
@@ -68,7 +239,8 @@ const ContractsPage: React.FC = () => {
     if (saved) {
       try {
         const parsedContracts = JSON.parse(saved);
-        setContracts(parsedContracts);
+        setAllContracts(parsedContracts);
+        applyFolderFilter(parsedContracts);
       } catch (error) {
         console.error('Error loading contracts:', error);
       }
@@ -76,9 +248,74 @@ const ContractsPage: React.FC = () => {
     setLoading(false);
   };
 
+  // Apply folder filter to contracts
+  const applyFolderFilter = (contractsList: ContractMetadata[]) => {
+    if (selectedFolder) {
+      // Filter contracts by selected folder (category)
+      const filtered = contractsList.filter(contract => 
+        contract.category?.toLowerCase() === selectedFolder.toLowerCase()
+      );
+      setContracts(filtered);
+    } else if (selectedTaxonomyCategory) {
+      // Show all contracts in taxonomy (no folder selected yet)
+      setContracts(contractsList);
+    } else {
+      // Show all contracts
+      setContracts(contractsList);
+    }
+  };
+
+  // Update contracts when folder selection changes
+  useEffect(() => {
+    if (allContracts.length > 0) {
+      applyFolderFilter(allContracts);
+    }
+  }, [selectedFolder, selectedTaxonomyCategory]);
+
   const saveContracts = (updatedContracts: ContractMetadata[]) => {
-    setContracts(updatedContracts);
+    setAllContracts(updatedContracts);
+    applyFolderFilter(updatedContracts);
     localStorage.setItem('contracts', JSON.stringify(updatedContracts));
+  };
+
+  // Handle creating a new folder
+  const handleCreateFolder = async () => {
+    if (!newFolderName.trim() || !selectedTaxonomyCategory) {
+      setError('Please enter a folder name');
+      return;
+    }
+
+    setIsCreatingFolder(true);
+    setError(null);
+
+    try {
+      const response = await folderApiService.createFolder({
+        taxonomyId: selectedTaxonomyCategory,
+        name: newFolderName.trim()
+      });
+
+      if (response.success && response.folder) {
+        // Reload folders
+        const foldersResponse = await folderApiService.listFolders(selectedTaxonomyCategory);
+        if (foldersResponse.success && foldersResponse.folders) {
+          setUserCreatedFolders(foldersResponse.folders);
+        }
+        const allFoldersResponse = await folderApiService.listFolders();
+        if (allFoldersResponse.success && allFoldersResponse.folders) {
+          setAllUserFolders(allFoldersResponse.folders);
+        }
+        // Reset form
+        setNewFolderName('');
+        setIsCreateFolderModalOpen(false);
+      } else {
+        setError(response.message || 'Failed to create folder');
+      }
+    } catch (error) {
+      console.error('Create folder error:', error);
+      setError(error instanceof Error ? error.message : 'Failed to create folder');
+    } finally {
+      setIsCreatingFolder(false);
+    }
   };
 
   const getContractStatus = (contract: ContractMetadata): 'active' | 'expiring_soon' | 'expired' | 'terminated' | 'draft' => {
@@ -139,17 +376,18 @@ const ContractsPage: React.FC = () => {
       contract.contractType.toLowerCase().includes(searchQuery.toLowerCase()) ||
       contract.parties.some(party => party.toLowerCase().includes(searchQuery.toLowerCase()));
     
-    const matchesStatus = statusFilter === 'all' || contract.status === statusFilter;
+    const status = getContractStatus(contract);
+    const matchesStatus = statusFilter === 'all' || status === statusFilter;
     
     return matchesSearch && matchesStatus;
   });
 
-  const expiringSoon = contracts.filter(c => {
+  const expiringSoon = allContracts.filter(c => {
     const status = getContractStatus(c);
     return status === 'expiring_soon';
   });
 
-  const expiredContracts = contracts.filter(c => {
+  const expiredContracts = allContracts.filter(c => {
     const status = getContractStatus(c);
     return status === 'expired';
   });
@@ -182,6 +420,14 @@ const ContractsPage: React.FC = () => {
                 <p className="mt-1 text-sm text-gray-600">Track, manage, and organize your contracts and legal documents</p>
               </div>
             </div>
+            <div className="flex items-center space-x-3">
+              <button
+                onClick={() => window.open('https://contractbook.com/templates', '_blank')}
+                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors flex items-center space-x-2"
+              >
+                <LinkIcon className="h-5 w-5" />
+                <span>Contract Templates</span>
+              </button>
             <button
               onClick={() => setShowContractForm(true)}
               className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
@@ -189,6 +435,7 @@ const ContractsPage: React.FC = () => {
               <PlusIcon className="h-5 w-5" />
               <span>Add Contract</span>
             </button>
+            </div>
           </div>
         </div>
       </div>
@@ -240,7 +487,7 @@ const ContractsPage: React.FC = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-500">Total Contracts</p>
-                <p className="text-2xl font-bold text-gray-900 mt-1">{contracts.length}</p>
+                <p className="text-2xl font-bold text-gray-900 mt-1">{allContracts.length}</p>
               </div>
               <DocumentDuplicateIcon className="h-10 w-10 text-blue-500" />
             </div>
@@ -250,7 +497,7 @@ const ContractsPage: React.FC = () => {
               <div>
                 <p className="text-sm text-gray-500">Active</p>
                 <p className="text-2xl font-bold text-green-600 mt-1">
-                  {contracts.filter(c => getContractStatus(c) === 'active').length}
+                  {allContracts.filter(c => getContractStatus(c) === 'active').length}
                 </p>
               </div>
               <CheckCircleIcon className="h-10 w-10 text-green-500" />
@@ -307,13 +554,200 @@ const ContractsPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Contracts List */}
+        {/* Folder Navigation or Contracts List */}
         {loading ? (
           <div className="text-center py-12">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
             <p className="mt-4 text-gray-600">Loading contracts...</p>
           </div>
-        ) : filteredContracts.length === 0 ? (
+        ) : selectedTaxonomyCategory === null ? (
+          // Show Taxonomy Categories
+          <div>
+            <div className="mb-4">
+              <h2 className="text-xl font-semibold text-gray-900 mb-2">Contract Categories</h2>
+              <p className="text-sm text-gray-600">Select a category to view and organize your contracts</p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {taxonomyCategories.map((taxCategory) => {
+                const IconComponent = taxCategory.icon;
+                const userFoldersForTaxonomy = allUserFolders.filter(f => f.taxonomyId === taxCategory.id);
+                const totalFolderCount = taxCategory.folders.length + userFoldersForTaxonomy.length;
+                
+                // Count contracts in this taxonomy
+                const taxonomyContracts = allContracts.filter(contract => {
+                  const contractCategory = contract.category?.toLowerCase() || '';
+                  return taxCategory.folders.some(f => f.toLowerCase() === contractCategory) ||
+                         userFoldersForTaxonomy.some(f => f.name.toLowerCase() === contractCategory);
+                });
+                
+                return (
+                  <div 
+                    key={taxCategory.id} 
+                    className="bg-white border-2 border-gray-200 rounded-xl p-6 hover:shadow-lg hover:border-gray-300 transition-all cursor-pointer"
+                    onClick={() => setSelectedTaxonomyCategory(taxCategory.id)}
+                  >
+                    <div className="flex items-center justify-between mb-4">
+                      <div className={`w-14 h-14 ${taxCategory.color} rounded-xl flex items-center justify-center`}>
+                        <IconComponent className="h-8 w-8" />
+                      </div>
+                    </div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2 line-clamp-2">
+                      {taxCategory.name}
+                    </h3>
+                    <div className="space-y-1">
+                      <p className="text-sm text-gray-600">
+                        {totalFolderCount} {totalFolderCount === 1 ? 'folder' : 'folders'}
+                      </p>
+                      <p className="text-sm text-gray-500">
+                        {taxonomyContracts.length} {taxonomyContracts.length === 1 ? 'contract' : 'contracts'}
+                      </p>
+                    </div>
+                    <div className="mt-3 flex items-center text-sm text-gray-400">
+                      <span>View folders</span>
+                      <ChevronRightIcon className="h-4 w-4 ml-1" />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ) : selectedFolder === null ? (
+          // Show Folders within selected Taxonomy Category
+          <div>
+            <div className="mb-4 flex items-center">
+              <button
+                onClick={() => setSelectedTaxonomyCategory(null)}
+                className="mr-3 p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                title="Back to categories"
+              >
+                <ChevronDownIcon className="h-5 w-5 rotate-90" />
+              </button>
+              <div className="flex items-center space-x-3">
+                {(() => {
+                  const taxCategory = taxonomyCategories.find(c => c.id === selectedTaxonomyCategory);
+                  if (!taxCategory) return null;
+                  const IconComponent = taxCategory.icon;
+                  return (
+                    <>
+                      <div className={`w-10 h-10 ${taxCategory.color} rounded-lg flex items-center justify-center`}>
+                        <IconComponent className="h-6 w-6" />
+                      </div>
+                      <h2 className="text-xl font-semibold text-gray-900">{taxCategory.name}</h2>
+                    </>
+                  );
+                })()}
+              </div>
+            </div>
+            
+            <div className="mb-4 flex items-center justify-between">
+              <div></div>
+              <button
+                onClick={() => setIsCreateFolderModalOpen(true)}
+                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              >
+                <PlusIcon className="h-4 w-4 mr-2" />
+                Create New Folder
+              </button>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {(() => {
+                const taxCategory = taxonomyCategories.find(c => c.id === selectedTaxonomyCategory);
+                if (!taxCategory) return null;
+                
+                const defaultFolders = taxCategory.folders;
+                const userFolderNames = userCreatedFolders.map(f => f.name);
+                const allFolders = [...defaultFolders, ...userFolderNames];
+                
+                if (allFolders.length === 0) {
+                  return (
+                    <div className="col-span-full bg-white rounded-xl border border-gray-200 shadow-sm p-12 text-center">
+                      <FolderIcon className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                      <h3 className="text-xl font-semibold text-gray-900 mb-2">No Folders Yet</h3>
+                      <p className="text-gray-600 mb-6">
+                        Start managing your contracts by adding your first contract from your vault documents.
+                      </p>
+                      <button
+                        onClick={() => setShowContractForm(true)}
+                        className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                      >
+                        Add Contract
+                      </button>
+                    </div>
+                  );
+                }
+                
+                return allFolders.map((folder) => {
+                  const folderContracts = allContracts.filter(contract => 
+                    contract.category?.toLowerCase() === folder.toLowerCase()
+                  );
+                  const isUserCreated = userCreatedFolders.some(f => f.name === folder);
+                  
+                  return (
+                    <div 
+                      key={folder} 
+                      className="bg-gray-50 border border-gray-200 rounded-xl p-6 hover:shadow-lg transition-shadow cursor-pointer relative group"
+                      onClick={() => setSelectedFolder(folder)}
+                    >
+                      <div className="flex items-center justify-between mb-4">
+                        <FolderIcon className="h-12 w-12 text-yellow-500" />
+                      </div>
+                      <div className="flex items-center space-x-2 mb-2">
+                        <h3 className="text-base font-semibold text-gray-900 line-clamp-2 flex-1">
+                          {folder}
+                        </h3>
+                        {isUserCreated && (
+                          <span className="text-xs px-2 py-1 bg-blue-100 text-blue-800 rounded-full">
+                            Custom
+                          </span>
+                        )}
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-sm text-gray-500">
+                          {folderContracts.length} {folderContracts.length === 1 ? 'contract' : 'contracts'}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                });
+              })()}
+            </div>
+          </div>
+        ) : (
+          // Show Contracts in Selected Folder
+          <div>
+            <div className="mb-4 flex items-center">
+              <button
+                onClick={() => setSelectedFolder(null)}
+                className="mr-3 p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                title="Back to folders"
+              >
+                <ChevronDownIcon className="h-5 w-5 rotate-90" />
+              </button>
+              <div className="flex items-center space-x-3">
+                {(() => {
+                  const taxCategory = taxonomyCategories.find(c => c.id === selectedTaxonomyCategory);
+                  if (!taxCategory) return null;
+                  const IconComponent = taxCategory.icon;
+                  return (
+                    <>
+                      <div className={`w-10 h-10 ${taxCategory.color} rounded-lg flex items-center justify-center`}>
+                        <IconComponent className="h-6 w-6" />
+                      </div>
+                      <div>
+                        <div className="text-xs text-gray-500 mb-1">{taxCategory.name}</div>
+                        <div className="flex items-center space-x-2">
+                          <FolderIcon className="h-6 w-6 text-yellow-500" />
+                          <h2 className="text-xl font-semibold text-gray-900">{selectedFolder}</h2>
+                        </div>
+                      </div>
+                    </>
+                  );
+                })()}
+              </div>
+            </div>
+
+            {filteredContracts.length === 0 ? (
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-12 text-center">
             <DocumentDuplicateIcon className="h-16 w-16 text-gray-400 mx-auto mb-4" />
             <h3 className="text-xl font-semibold text-gray-900 mb-2">
@@ -458,6 +892,70 @@ const ContractsPage: React.FC = () => {
           </div>
         )}
       </div>
+        )}
+      </div>
+
+      {/* Create Folder Modal */}
+      {isCreateFolderModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              Create New Folder
+            </h3>
+            <p className="text-sm text-gray-600 mb-4">
+              {selectedTaxonomyCategory && (
+                <>Create a new folder in <strong>{taxonomyCategories.find(c => c.id === selectedTaxonomyCategory)?.name}</strong></>
+              )}
+            </p>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Folder Name *
+                </label>
+                <input
+                  type="text"
+                  value={newFolderName}
+                  onChange={(e) => setNewFolderName(e.target.value)}
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter' && !isCreatingFolder) {
+                      handleCreateFolder();
+                    }
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Enter folder name"
+                  disabled={isCreatingFolder}
+                  autoFocus
+                />
+              </div>
+              {error && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                  <p className="text-sm text-red-600">{error}</p>
+                </div>
+              )}
+              <div className="flex space-x-3">
+                <button
+                  onClick={handleCreateFolder}
+                  disabled={!newFolderName.trim() || isCreatingFolder}
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                >
+                  {isCreatingFolder ? 'Creating...' : 'Create Folder'}
+                </button>
+                <button
+                  onClick={() => {
+                    setIsCreateFolderModalOpen(false);
+                    setNewFolderName('');
+                    setError(null);
+                  }}
+                  disabled={isCreatingFolder}
+                  className="flex-1 px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
